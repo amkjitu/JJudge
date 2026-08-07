@@ -11,6 +11,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.domain.Page;
@@ -39,8 +40,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * Web-layer slice: real controller, real exception handler, mocked service. Verifies the HTTP
  * contract - status codes, JSON shape, error envelope - without a database.
+ *
+ * <p>Security filters are switched off on purpose. {@code @WebMvcTest} does not scan
+ * {@code SecurityConfig}, so leaving them on would apply Boot's default "authenticate
+ * everything with HTTP Basic" chain - which tests neither the real rules nor the controller.
+ * The genuine authorization matrix lives in {@code AuthorizationApiIT}, against the real chain.
  */
 @WebMvcTest(ProblemController.class)
+@AutoConfigureMockMvc(addFilters = false)
 @DisplayName("GET /api/v1/problems")
 class ProblemControllerTest {
 

@@ -1,6 +1,7 @@
 package com.codearena.api.repository;
 
 import com.codearena.api.domain.User;
+import com.codearena.common.domain.AuthProvider;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,6 +16,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByUsername(String username);
 
     Optional<User> findByEmail(String email);
+
+    /**
+     * Federated lookup by the provider's stable subject id. Deliberately not by email - see
+     * {@code OAuth2UserProvisioningService} for why matching on email is an account-takeover
+     * vector.
+     */
+    Optional<User> findByProviderIdAndAuthProvider(String providerId, AuthProvider authProvider);
 
     boolean existsByUsername(String username);
 

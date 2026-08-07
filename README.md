@@ -9,8 +9,9 @@ A competitive-programming practice platform: browse problems, submit solutions, 
 asynchronously judged verdicts, climb a leaderboard — and get told *what to solve next* by a
 recommendation engine that models your per-topic proficiency.
 
-> **Status: Phase 2 of 8 complete.** Domain model, migrations, seed data, a versioned REST API
-> with RFC 7807 errors and OpenAPI docs — all running in Docker. The build order and what each
+> **Status: Phase 3 of 8 complete.** Domain model, migrations, seed data, a versioned REST API
+> with RFC 7807 errors and OpenAPI docs, and JWT + OAuth2 authentication with rotating refresh
+> tokens and per-user rate limiting — all running in Docker. The build order and what each
 > phase adds is in [Roadmap](#roadmap).
 
 <!-- TODO(phase-8): hero screenshot / GIF goes here -->
@@ -27,6 +28,7 @@ recommendation engine that models your per-topic proficiency.
 - [The recommendation algorithm](#the-recommendation-algorithm)
 - [Getting started](#getting-started)
 - [API](#api)
+- [Security](#security)
 - [Testing](#testing)
 - [Project structure](#project-structure)
 - [Roadmap](#roadmap)
@@ -83,7 +85,7 @@ Four Maven modules: `arena-common` (shared enums and event contracts), `arena-ap
 | Document data | MongoDB *(Phase 7)* |
 | Cache / ranking | Redis sorted sets *(Phase 5)* |
 | Messaging | Apache Kafka in KRaft mode *(Phase 6)* |
-| Security | Spring Security, BCrypt, JWT access/refresh, OAuth2 Google *(Phase 3)* |
+| Security | Spring Security 6, BCrypt, HS256 JWT access tokens, rotating opaque refresh tokens, OAuth2 Google |
 | Web UI | Thymeleaf, Bootstrap 5, CodeMirror, Chart.js *(Phase 4)* |
 | AI | Spring AI with Ollama, provider-configurable to OpenAI *(Phase 7)* |
 | API | Versioned `/api/v1`, MapStruct DTO mapping, Bean Validation, RFC 7807 errors |
@@ -106,6 +108,7 @@ Four Maven modules: `arena-common` (shared enums and event contracts), `arena-ap
 | `tag_prerequisites` | directed edges of the prerequisite DAG over tags |
 | `submissions` | one row per attempt: language, status, verdict, runtime |
 | `user_tag_stats` | denormalised per-user, per-tag solved/attempt counters |
+| `refresh_tokens` | hashed, revocable refresh tokens with rotation lineage |
 
 Design notes worth calling out:
 
@@ -205,6 +208,14 @@ Maven itself.
 
 Interactive docs: **<http://localhost:8080/swagger-ui.html>** (spec at `/v3/api-docs`).
 
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| `POST` | `/api/v1/auth/register` | — | Create a local account, returns a token pair |
+| `POST` | `/api/v1/auth/login` | — | Exchange credentials for a token pair |
+| `POST` | `/api/v1/auth/refresh` | refresh token | Rotate: consumes the token, returns a new pair |
+| `POST` | `/api/v1/auth/logout` | refresh token | Revoke a refresh token (idempotent) |
+| `GET` | `/api/v1/auth/me` | bearer | The caller's own profile |
+
 | Method | Path | Purpose |
 |---|---|---|
 | `GET` | `/api/v1/problems` | List/filter/search, paginated |
@@ -228,12 +239,12 @@ curl -s "http://localhost:8080/api/v1/reports/tag-difficulty?sort=HARDEST&minPro
 ```
 
 ```bash
-curl -s -X POST http://localhost:8080/api/v1/submissions -H 'Content-Type: application/json' -H 'X-Arena-User: alice' -d '{"problemSlug":"edit-distance","language":"JAVA","sourceCode":"class Main {}"}'
+TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/auth/login -H 'Content-Type: application/json' -d '{"usernameOrEmail":"bob","password":"Password123!"}' | python -c "import sys,json;print(json.load(sys.stdin)['accessToken'])")
 ```
 
-> `X-Arena-User` is a stand-in until Phase 3. It is **not** authentication — it is a spoofable
-> header behind a `CurrentUserProvider` interface, so swapping in a `SecurityContextHolder`
-> implementation touches exactly one class. It defaults to the `bob` demo account.
+```bash
+curl -s -X POST http://localhost:8080/api/v1/submissions -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"problemSlug":"edit-distance","language":"JAVA","sourceCode":"class Main {}"}'
+```
 
 ### Design decisions worth calling out
 
@@ -266,12 +277,98 @@ which means using `ResultSet#wasNull()`, since `getDouble` silently turns SQL `N
 
 ---
 
+## Security
+
+Two filter chains, because the API and the browser login flow want opposite things:
+
+| Chain | Matches | Session | CSRF | Unauthenticated response |
+|---|---|---|---|---|
+| API | `/api/**` | stateless | off | `401` + `application/problem+json` |
+| Web | everything else | as needed | on | `401`, or the OAuth2 redirect |
+
+CSRF is disabled **only** on the stateless chain. That is safe precisely because
+authentication rides in the `Authorization` header rather than a cookie — a cross-site form
+post carries no credentials to forge. The browser chain keeps CSRF protection, because the
+OAuth2 `state` parameter genuinely needs a session behind it.
+
+### Access rules
+
+| Area | Rule |
+|---|---|
+| Problems, tags, profiles, reports (`GET`) | public — browsing needs no account |
+| Submissions | authenticated |
+| `/api/v1/admin/**` | `ADMIN` — enforced by *both* the path matcher and `@PreAuthorize` |
+| `/actuator/health`, `/actuator/info`, Swagger | public |
+| Other actuator endpoints | `ADMIN` |
+
+The admin rule is deliberately doubled up. Path matchers are easy to break by accident — a new
+controller mapped one level up, a matcher that stops matching after a refactor — and method
+security fails closed regardless of how a request was routed.
+
+### Tokens
+
+**Access tokens are JWTs** (HS256, 15 minutes), so authorization needs no database round trip.
+Signed with a key the app refuses to start without, and validated for signature, expiry *and*
+issuer — so a token minted by another service sharing the key is still rejected.
+
+**Refresh tokens are not JWTs.** They are 256 bits of `SecureRandom`, stored as a SHA-256
+digest, valid for 7 days. The reasoning: the entire point of a refresh token is that it can be
+revoked, and a signed JWT cannot be — once issued it is valid until it expires no matter what
+the server later decides. A database row gives you logout, rotation and reuse detection; the
+access token stays stateless precisely because it is short-lived enough that revocation doesn't
+matter.
+
+SHA-256 rather than BCrypt for the digest is also deliberate: BCrypt's work factor exists to
+slow brute-forcing of low-entropy human passwords, and a 256-bit random token has nothing to
+brute-force. This hash runs on every single refresh.
+
+**Rotation with reuse detection.** Every refresh consumes the presented token and issues a new
+one, linked back through `replaced_by`. Presenting an already-rotated token has only one
+consistent explanation — it leaked — so every live session for that account is revoked. This
+costs a legitimate user one re-login in the rare genuinely-concurrent case, which is the right
+side of that trade.
+
+> **A bug this caught:** the revocation originally ran in the same transaction as the exception
+> that reports it — so throwing rolled the revocation straight back, leaving the *attacker's*
+> newer token live. It only shows up in a test that checks the other token afterwards. Fixed by
+> running the revocation in a `REQUIRES_NEW` transaction.
+
+### Other decisions
+
+- **Federated accounts are matched on the provider's `sub`, never on email.** Email addresses
+  get reassigned and can change; matching on them would mean anyone who could get Google to
+  issue a token for an address equal to an existing account's email would take that account
+  over. A Google identity whose email already belongs to a local account is refused rather than
+  silently linked.
+- **The database enforces the password/provider correspondence.** `password_hash` is nullable,
+  with a `CHECK` requiring it exactly when `auth_provider = 'LOCAL'`. "Federated user with a
+  password nobody set" is unrepresentable, not merely unlikely.
+- **The OAuth2 callback delivers the refresh token in an `HttpOnly` cookie**, not a URL
+  parameter or fragment — both of those write a long-lived credential into browser history, and
+  a query parameter additionally leaks through `Referer` and access logs.
+- **Login does not distinguish "no such user" from "wrong password".** That difference is a free
+  account-enumeration oracle. A test asserts the two responses are byte-identical.
+- **Validation errors redact sensitive fields.** Echoing the rejected value is genuinely useful
+  ("you sent 99999, the max is 4000") and is also how a rejected password ends up in a response
+  body and every log that aggregates it. Fields matching `password`/`secret`/`token`/
+  `credential` report no value, and long values are truncated.
+- **Google login is optional.** With no credentials configured the application starts normally
+  and simply has no Google button — Boot's own auto-configuration would instead fail at startup
+  on an empty `client-id`, which is what happens when Compose passes the variable through
+  unset.
+- **Rate limiting is a token bucket, keyed by user.** A fixed window would let a caller spend
+  the whole quota at the end of one window and again at the start of the next. Keyed by user id
+  rather than IP, because IP punishes everyone behind one NAT and is trivially evaded — which
+  is why it runs as an interceptor (after authentication) rather than a filter.
+
+---
+
 ## Testing
 
 | Command | What runs | Needs Docker |
 |---|---|---|
-| `./mvnw test` | unit tests only (`*Test`) — 49 tests | no |
-| `./mvnw verify` | unit **and** integration tests (`*IT`) — 120 tests | yes |
+| `./mvnw test` | unit tests only (`*Test`) — 65 tests | no |
+| `./mvnw verify` | unit **and** integration tests (`*IT`) — 179 tests | yes |
 
 Integration tests use Testcontainers against a real PostgreSQL 16 image — never H2 — so
 migrations, `CHECK` constraints, `FULL OUTER JOIN` and Postgres-specific SQL are all exercised
@@ -284,7 +381,11 @@ Three layers, each testing something the others cannot:
 |---|---|---|
 | Unit | plain JUnit + Mockito | business rules — difficulty derivation, tag resolution, proficiency smoothing, LRU eviction |
 | Web slice | `@WebMvcTest`, mocked services | the HTTP contract — status codes, JSON shape, error envelope |
-| Full stack | `@SpringBootTest` + Testcontainers | the Specification SQL, entity graphs, DB constraints, real session semantics |
+| Full stack | `@SpringBootTest` + Testcontainers | the Specification SQL, entity graphs, DB constraints, the real security chain, real session semantics |
+
+Authorization tests are deliberately weighted towards the **negative** cases. A test proving an
+admin can create a problem says nothing about whether everyone else can too, and that second
+question is the one that matters.
 
 ### A bug the tests were hiding
 
@@ -320,6 +421,11 @@ What the suite covers:
 - the page-size cap is applied, and an unknown `?sort=` property is a 400 rather than a 500
 - the reporting SQL's null semantics: untouched tags report `null`, not `0.0`
 - `?sort=DROP TABLE users` is rejected before it can reach the query
+- the full token lifecycle against real signing and decoding: login → bearer call → rotate →
+  replay the rotated token → every session dies
+- a forged signature, a foreign issuer and an expired token are each rejected
+- registration never echoes the password back, in success *or* validation responses
+- a refused admin write genuinely did not happen — asserted by reading the row back
 
 ### Note on Docker API versions
 
@@ -369,7 +475,7 @@ Override with `-Ddocker.api.version=…` if your engine needs something differen
 |---|---|---|
 | 1 | Multi-module scaffold, entities, migrations, seed data, repository tests | ✅ done |
 | 2 | REST API, DTOs, validation, RFC 7807 errors, OpenAPI, `JdbcTemplate` report | ✅ done |
-| 3 | Spring Security, JWT access/refresh, OAuth2 Google, rate limiting | ⬜ |
+| 3 | Spring Security, JWT access/refresh, OAuth2 Google, rate limiting | ✅ done |
 | 4 | Thymeleaf UI: Bootstrap, CodeMirror editor, Chart.js progress charts | ⬜ |
 | 5 | Recommendation engine, Redis leaderboard | ⬜ |
 | 6 | Kafka pipeline, `arena-judge` worker, SSE live verdicts | ⬜ |

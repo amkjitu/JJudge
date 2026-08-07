@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
@@ -28,7 +29,8 @@ import java.net.URI;
 
 @RestController
 @RequestMapping("/api/v1/submissions")
-@Tag(name = "Submissions", description = "Submit solutions and read verdicts")
+@SecurityRequirement(name = "bearerAuth")
+@Tag(name = "Submissions", description = "Submit solutions and read verdicts (authenticated)")
 public class SubmissionController {
 
     private final SubmissionService submissionService;
@@ -51,7 +53,9 @@ public class SubmissionController {
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Submission accepted and queued"),
             @ApiResponse(responseCode = "400", description = "Validation failed", content = @Content),
-            @ApiResponse(responseCode = "404", description = "No such problem", content = @Content)
+            @ApiResponse(responseCode = "401", description = "Not authenticated", content = @Content),
+            @ApiResponse(responseCode = "404", description = "No such problem", content = @Content),
+            @ApiResponse(responseCode = "429", description = "Submission rate limit exceeded", content = @Content)
     })
     public ResponseEntity<SubmissionResponse> submit(@Valid @RequestBody CreateSubmissionRequest request,
                                                      UriComponentsBuilder uriBuilder) {

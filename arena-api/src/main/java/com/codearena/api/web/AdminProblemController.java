@@ -8,9 +8,11 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,13 +27,19 @@ import java.net.URI;
 /**
  * Problem authoring.
  *
- * <p>Kept on a separate {@code /admin} path rather than mixed into {@link ProblemController}
- * so Phase 3 can lock the whole branch down with one path matcher instead of annotating
- * individual methods.
+ * <p>Kept on a separate {@code /admin} path so the filter chain can lock the whole branch down
+ * with one matcher instead of annotating individual methods.
+ *
+ * <p>The class-level {@code @PreAuthorize} is deliberate redundancy on top of that matcher.
+ * Path-based rules are easy to bypass by accident - a new controller mapped one level up, a
+ * matcher that stops matching after a refactor - and method security fails closed regardless of
+ * how the request was routed.
  */
 @RestController
 @RequestMapping("/api/v1/admin/problems")
-@Tag(name = "Admin: problems", description = "Problem authoring (ADMIN only from Phase 3)")
+@PreAuthorize("hasRole('ADMIN')")
+@SecurityRequirement(name = "bearerAuth")
+@Tag(name = "Admin: problems", description = "Problem authoring (ADMIN only)")
 public class AdminProblemController {
 
     private final ProblemService problemService;

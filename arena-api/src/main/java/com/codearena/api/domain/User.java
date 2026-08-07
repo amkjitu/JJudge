@@ -1,5 +1,6 @@
 package com.codearena.api.domain;
 
+import com.codearena.common.domain.AuthProvider;
 import com.codearena.common.domain.Role;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -44,8 +45,21 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @Column(name = "password_hash", nullable = false, length = 100)
+    /**
+     * BCrypt hash, present only for {@link AuthProvider#LOCAL} accounts. Federated accounts
+     * have no password of ours to store, and the database enforces that correspondence.
+     */
+    @Column(name = "password_hash", length = 100)
     private String passwordHash;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "auth_provider", nullable = false, length = 20)
+    @Builder.Default
+    private AuthProvider authProvider = AuthProvider.LOCAL;
+
+    /** The identity provider's stable subject id. Null for local accounts. */
+    @Column(name = "provider_id")
+    private String providerId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

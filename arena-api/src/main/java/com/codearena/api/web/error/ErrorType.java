@@ -16,6 +16,10 @@ public enum ErrorType {
     RESOURCE_NOT_FOUND("resource-not-found", "Resource not found"),
     RESOURCE_CONFLICT("resource-conflict", "Resource conflict"),
     MALFORMED_REQUEST("malformed-request", "Malformed request"),
+    UNAUTHENTICATED("unauthenticated", "Authentication required"),
+    FORBIDDEN("forbidden", "Access denied"),
+    INVALID_CREDENTIALS("invalid-credentials", "Invalid credentials"),
+    RATE_LIMITED("rate-limited", "Too many requests"),
     INTERNAL_ERROR("internal-error", "Internal server error");
 
     private static final String BASE = "https://codearena.dev/errors/";

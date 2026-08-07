@@ -60,8 +60,32 @@ springdoc:
     display-request-duration: true
 
 arena:
-  # Stand-in identity until Phase 3 wires up Spring Security. See HeaderCurrentUserProvider.
-  demo-user: ${ARENA_DEMO_USER:bob}
+  jwt:
+    # No default: the application must refuse to start rather than sign tokens with a key
+    # that is published in this repository. .env.example carries a development value.
+    secret: ${ARENA_JWT_SECRET}
+    issuer: ${ARENA_JWT_ISSUER:codearena}
+    # Short, because a signed JWT cannot be revoked before it expires.
+    access-ttl: ${ARENA_JWT_ACCESS_TTL:15m}
+    # Long, but revocable - refresh tokens are database rows, not JWTs.
+    refresh-ttl: ${ARENA_JWT_REFRESH_TTL:7d}
+
+  security:
+    # A Secure cookie is never sent over plain HTTP, which would silently break local dev.
+    # Must be true anywhere served over TLS.
+    secure-cookies: ${ARENA_SECURE_COOKIES:false}
+
+  oauth2:
+    success-redirect: ${ARENA_OAUTH2_SUCCESS_REDIRECT:/}
+    google:
+      # Blank disables Google login entirely - see GoogleOAuth2Config.
+      client-id: ${GOOGLE_CLIENT_ID:}
+      client-secret: ${GOOGLE_CLIENT_SECRET:}
+
+  rate-limit:
+    enabled: ${ARENA_RATE_LIMIT_ENABLED:true}
+    submissions-per-window: ${ARENA_RATE_LIMIT_SUBMISSIONS:10}
+    window: ${ARENA_RATE_LIMIT_WINDOW:1m}
 
 server:
   port: ${SERVER_PORT:8080}

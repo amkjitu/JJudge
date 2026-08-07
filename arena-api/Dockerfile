@@ -14,7 +14,11 @@ COPY arena-common/pom.xml arena-common/
 COPY arena-api/pom.xml arena-api/
 COPY arena-judge/pom.xml arena-judge/
 COPY arena-ai/pom.xml arena-ai/
-RUN mvn -B -ntp -pl arena-api -am dependency:go-offline
+# Best-effort on purpose. go-offline resolves *optional* dependencies the build never uses -
+# Flyway's AWS S3 support, for one - and hard-fails when they are absent from Central. This
+# layer exists to warm the dependency cache, not to gate the build: stage 2 downloads anything
+# that is genuinely missing, and would fail there if a real dependency could not be resolved.
+RUN mvn -B -ntp -pl arena-api -am dependency:go-offline || true
 
 # ---------------------------------------------------------------------------------------
 # Stage 2 - compile and package.

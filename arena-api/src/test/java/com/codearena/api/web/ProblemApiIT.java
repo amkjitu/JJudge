@@ -183,6 +183,7 @@ class ProblemApiIT extends AbstractApiIT {
 
         private void createFixture(String slug, int rating, List<String> tags) throws Exception {
             mockMvc.perform(post("/api/v1/admin/problems")
+                            .with(asAdmin("admin"))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(createBody(slug, rating, tags)))
                     .andExpect(status().isCreated());
@@ -192,6 +193,7 @@ class ProblemApiIT extends AbstractApiIT {
         @DisplayName("creates a problem and derives its difficulty from the rating")
         void createsProblem() throws Exception {
             mockMvc.perform(post("/api/v1/admin/problems")
+                            .with(asAdmin("admin"))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(createBody("fixture-create", 1850, List.of("dp", "graph"))))
                     .andExpect(status().isCreated())
@@ -210,6 +212,7 @@ class ProblemApiIT extends AbstractApiIT {
         @DisplayName("rejects a slug that is already taken")
         void rejectsDuplicateSlug() throws Exception {
             mockMvc.perform(post("/api/v1/admin/problems")
+                            .with(asAdmin("admin"))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(createBody("edit-distance", 1500, List.of("dp"))))
                     .andExpect(status().isConflict())
@@ -221,6 +224,7 @@ class ProblemApiIT extends AbstractApiIT {
         @DisplayName("rejects an unknown tag with the offending name in the message")
         void rejectsUnknownTag() throws Exception {
             mockMvc.perform(post("/api/v1/admin/problems")
+                            .with(asAdmin("admin"))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(createBody("fixture-unknown-tag", 1500, List.of("dp", "quantum"))))
                     .andExpect(status().isBadRequest())
@@ -231,6 +235,7 @@ class ProblemApiIT extends AbstractApiIT {
         @DisplayName("rejects a malformed slug")
         void rejectsMalformedSlug() throws Exception {
             mockMvc.perform(post("/api/v1/admin/problems")
+                            .with(asAdmin("admin"))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(createBody("Not A Slug", 1500, List.of("dp"))))
                     .andExpect(status().isBadRequest())
@@ -248,6 +253,7 @@ class ProblemApiIT extends AbstractApiIT {
                     "tags", List.of("strings")));
 
             mockMvc.perform(put("/api/v1/admin/problems/fixture-update")
+                            .with(asAdmin("admin"))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(body))
                     .andExpect(status().isOk())
@@ -270,6 +276,7 @@ class ProblemApiIT extends AbstractApiIT {
                     "title", "Nope", "rating", 900, "tags", List.of("strings")));
 
             mockMvc.perform(put("/api/v1/admin/problems/never-existed")
+                            .with(asAdmin("admin"))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(body))
                     .andExpect(status().isNotFound());
@@ -280,7 +287,7 @@ class ProblemApiIT extends AbstractApiIT {
         void deletesProblem() throws Exception {
             createFixture("fixture-delete", 1500, List.of("dp"));
 
-            mockMvc.perform(delete("/api/v1/admin/problems/fixture-delete"))
+            mockMvc.perform(delete("/api/v1/admin/problems/fixture-delete").with(asAdmin("admin")))
                     .andExpect(status().isNoContent());
 
             mockMvc.perform(get("/api/v1/problems/fixture-delete"))
@@ -290,7 +297,7 @@ class ProblemApiIT extends AbstractApiIT {
         @Test
         @DisplayName("deleting something that is not there is a 404")
         void deleteUnknown() throws Exception {
-            mockMvc.perform(delete("/api/v1/admin/problems/never-existed"))
+            mockMvc.perform(delete("/api/v1/admin/problems/never-existed").with(asAdmin("admin")))
                     .andExpect(status().isNotFound());
         }
     }

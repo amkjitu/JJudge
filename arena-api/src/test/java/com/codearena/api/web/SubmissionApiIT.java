@@ -1,6 +1,5 @@
 package com.codearena.api.web;
 
-import com.codearena.api.service.HeaderCurrentUserProvider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -9,12 +8,14 @@ import java.net.URI;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.blankOrNullString;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -40,7 +41,7 @@ class SubmissionApiIT extends AbstractApiIT {
 
     private String submitAs(String username, String slug) throws Exception {
         return mockMvc.perform(post("/api/v1/submissions")
-                        .header(HeaderCurrentUserProvider.USER_HEADER, username)
+                        .with(asUser(username))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(submissionBody(slug)))
                 .andExpect(status().isCreated())
@@ -55,7 +56,7 @@ class SubmissionApiIT extends AbstractApiIT {
 
         // Read back in a *separate* request, so the associations are resolved by the entity
         // graph rather than by a session left open from the write.
-        mockMvc.perform(get(path))
+        mockMvc.perform(get(path).with(asUser(SUBMITTER)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.username").value(SUBMITTER))
                 .andExpect(jsonPath("$.problemSlug").value("edit-distance"))
@@ -70,7 +71,7 @@ class SubmissionApiIT extends AbstractApiIT {
     void sourceIsRetrievable() throws Exception {
         String location = submitAs(SUBMITTER, "edit-distance");
 
-        mockMvc.perform(get(URI.create(location).getPath() + "/source"))
+        mockMvc.perform(get(URI.create(location).getPath() + "/source").with(asUser(SUBMITTER)))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_PLAIN))
                 .andExpect(content().string(containsString("class Main")));
@@ -80,7 +81,7 @@ class SubmissionApiIT extends AbstractApiIT {
     @DisplayName("submitting against a problem that does not exist is a 404")
     void unknownProblemIs404() throws Exception {
         mockMvc.perform(post("/api/v1/submissions")
-                        .header(HeaderCurrentUserProvider.USER_HEADER, SUBMITTER)
+                        .with(asUser(SUBMITTER))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(submissionBody("no-such-problem")))
                 .andExpect(status().isNotFound())
@@ -88,10 +89,12 @@ class SubmissionApiIT extends AbstractApiIT {
     }
 
     @Test
-    @DisplayName("submitting as an unknown user is a 404 naming the user")
+    @DisplayName("an authenticated principal with no account row is a 404 naming the user")
     void unknownUserIs404() throws Exception {
+        // Can only happen if an account is deleted while its access token is still valid -
+        // which is exactly why the service resolves the user rather than trusting the token.
         mockMvc.perform(post("/api/v1/submissions")
-                        .header(HeaderCurrentUserProvider.USER_HEADER, "nobody")
+                        .with(asUser("deleted-account"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(submissionBody("edit-distance")))
                 .andExpect(status().isNotFound())
@@ -102,22 +105,18 @@ class SubmissionApiIT extends AbstractApiIT {
     @DisplayName("history is paged newest-first for the calling user")
     void historyForCurrentUser() throws Exception {
         mockMvc.perform(get("/api/v1/submissions/me")
-                        .header(HeaderCurrentUserProvider.USER_HEADER, "bob")
+                        .with(asUser("bob"))
                         .param("size", "5"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content", hasSize(5)))
                 .andExpect(jsonPath("$.totalElements", greaterThan(5)))
                 .andExpect(jsonPath("$.content[*].username", everyItem(is("bob"))))
                 // the flattened problem fields require the entity graph to have loaded
-                .andExpect(jsonPath("$.content[*].problemTitle", everyItem(is(notBlank()))));
-    }
-
-    private static org.hamcrest.Matcher<String> notBlank() {
-        return org.hamcrest.Matchers.not(org.hamcrest.Matchers.blankOrNullString());
+                .andExpect(jsonPath("$.content[*].problemTitle", everyItem(not(blankOrNullString()))));
     }
 
     @Test
-    @DisplayName("submissions can be listed per problem")
+    @DisplayName("submissions can be listed per problem without an account")
     void submissionsPerProblem() throws Exception {
         mockMvc.perform(get("/api/v1/problems/coin-change-minimum/submissions"))
                 .andExpect(status().isOk())
@@ -141,6 +140,16 @@ class SubmissionApiIT extends AbstractApiIT {
         double first = stats.get(0).get("proficiency").asDouble();
         double last = stats.get(stats.size() - 1).get("proficiency").asDouble();
         assertThat(first).isLessThanOrEqualTo(last);
+    }
+
+    @Test
+    @DisplayName("a public profile never exposes the password hash or email")
+    void profileDoesNotLeakCredentials() throws Exception {
+        String body = mockMvc.perform(get("/api/v1/users/bob"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(body).doesNotContain("passwordHash", "$2a$", "bob@codearena.dev");
     }
 
     @Test

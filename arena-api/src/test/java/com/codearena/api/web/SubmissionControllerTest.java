@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
@@ -33,7 +34,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * Web-layer slice with security filters switched off on purpose: {@code @WebMvcTest} does not
+ * scan {@code SecurityConfig}, so leaving them on would apply Boot's default "authenticate
+ * everything with HTTP Basic" chain - which tests neither the real rules nor the controller.
+ * The genuine authorization matrix lives in {@code AuthorizationApiIT}, against the real chain.
+ */
 @WebMvcTest(SubmissionController.class)
+@AutoConfigureMockMvc(addFilters = false)
 @DisplayName("/api/v1/submissions")
 class SubmissionControllerTest {
 

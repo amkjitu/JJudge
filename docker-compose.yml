@@ -40,6 +40,26 @@ services:
       ARENA_DB_POOL_SIZE: ${ARENA_DB_POOL_SIZE:-10}
       ARENA_LOG_LEVEL: ${ARENA_LOG_LEVEL:-INFO}
       SERVER_PORT: 8080
+
+      # The application itself has no default for the signing key - it refuses to start
+      # without one, which is the right behaviour for a deployment. The fallback here exists
+      # only so `docker compose up` works on a fresh clone with no .env; override it in .env
+      # for anything reachable from outside your machine.
+      ARENA_JWT_SECRET: ${ARENA_JWT_SECRET:-dev-only-change-me-0123456789abcdef0123456789abcdef}
+      ARENA_JWT_ISSUER: ${ARENA_JWT_ISSUER:-codearena}
+      ARENA_JWT_ACCESS_TTL: ${ARENA_JWT_ACCESS_TTL:-15m}
+      ARENA_JWT_REFRESH_TTL: ${ARENA_JWT_REFRESH_TTL:-7d}
+      # Plain HTTP locally, so a Secure cookie would never be sent.
+      ARENA_SECURE_COOKIES: ${ARENA_SECURE_COOKIES:-false}
+
+      # Blank disables Google login; the app starts normally without it.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      ARENA_OAUTH2_SUCCESS_REDIRECT: ${ARENA_OAUTH2_SUCCESS_REDIRECT:-/}
+
+      ARENA_RATE_LIMIT_ENABLED: ${ARENA_RATE_LIMIT_ENABLED:-true}
+      ARENA_RATE_LIMIT_SUBMISSIONS: ${ARENA_RATE_LIMIT_SUBMISSIONS:-10}
+      ARENA_RATE_LIMIT_WINDOW: ${ARENA_RATE_LIMIT_WINDOW:-1m}
     ports:
       - "${ARENA_API_PORT:-8080}:8080"
     depends_on:

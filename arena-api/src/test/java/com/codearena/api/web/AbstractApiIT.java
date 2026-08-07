@@ -11,10 +11,14 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
+
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 /**
  * Base for full-context API tests: the real Spring context, the real controllers, the real
- * services and a real PostgreSQL - only the servlet container is replaced by MockMvc.
+ * services, the real security filter chain and a real PostgreSQL - only the servlet container
+ * is replaced by MockMvc.
  *
  * <h2>Why there is no {@code @Transactional} here</h2>
  *
@@ -45,19 +49,41 @@ abstract class AbstractApiIT {
 
     private long submissionWatermark;
     private long problemWatermark;
+    private long userWatermark;
+    private long refreshTokenWatermark;
 
     @BeforeEach
     void recordWatermarks() {
         submissionWatermark = maxId("submissions");
         problemWatermark = maxId("problems");
+        userWatermark = maxId("users");
+        refreshTokenWatermark = maxId("refresh_tokens");
     }
 
     @AfterEach
     void undoWrites() {
-        // Submissions first: deleting a problem would cascade, but a submission may also have
-        // been added against a pre-existing problem.
+        // Order matters: children before parents, even though the FKs cascade, because a test
+        // may have added a submission against a pre-existing problem.
+        jdbcTemplate.update("DELETE FROM refresh_tokens WHERE id > ?", refreshTokenWatermark);
         jdbcTemplate.update("DELETE FROM submissions WHERE id > ?", submissionWatermark);
         jdbcTemplate.update("DELETE FROM problems WHERE id > ?", problemWatermark);
+        jdbcTemplate.update("DELETE FROM users WHERE id > ?", userWatermark);
+    }
+
+    /**
+     * Authenticates the request as an existing user without going through login.
+     *
+     * <p>Populates the same {@code Authentication#getName()} that a real bearer token would, so
+     * {@code SecurityContextCurrentUserProvider} cannot tell the difference. The genuine
+     * token flow - signing, decoding, expiry, rotation - is covered end to end by
+     * {@code AuthApiIT} instead; repeating it in every test would only slow the suite down.
+     */
+    protected static RequestPostProcessor asUser(String username) {
+        return user(username).roles("USER");
+    }
+
+    protected static RequestPostProcessor asAdmin(String username) {
+        return user(username).roles("ADMIN");
     }
 
     private long maxId(String table) {
@@ -67,7 +93,11 @@ abstract class AbstractApiIT {
     }
 
     @DynamicPropertySource
-    static void datasourceProperties(DynamicPropertyRegistry registry) {
+    static void testProperties(DynamicPropertyRegistry registry) {
         PostgresTestContainer.registerProperties(registry);
+        registry.add("arena.jwt.secret", () -> "test-only-signing-key-0123456789abcdefghijklmnop");
+        registry.add("arena.jwt.issuer", () -> "codearena-test");
+        // Off by default so unrelated tests are not throttled; RateLimitApiIT turns it on.
+        registry.add("arena.rate-limit.enabled", () -> "false");
     }
 }
