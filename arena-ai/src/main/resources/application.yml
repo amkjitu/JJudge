@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: arena-ai
+
+server:
+  port: ${SERVER_PORT:8090}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    com.codearena: ${ARENA_LOG_LEVEL:INFO}

@@ -1,0 +1,96 @@
+-- 40 seed problems spanning ratings 800-2200 and every tag in the taxonomy.
+--
+-- The rating spread is deliberate: the recommendation engine filters candidates to
+-- [userRating - 100, userRating + 200], so a demo user at 1150 and one at 1750 must both
+-- find a non-trivial pool. created_at is staggered so the recency term in the scoring
+-- function has something to work with.
+--
+-- Difficulty buckets: rating < 1200 EASY, 1200-1699 MEDIUM, >= 1700 HARD.
+
+INSERT INTO problems (id, title, slug, difficulty, rating, time_limit_ms, memory_limit_mb, created_by, created_at)
+VALUES (1, 'Two Sum Revisited', 'two-sum-revisited', 'EASY', 800, 1000, 256, 1, now() - INTERVAL '360 days'),
+       (2, 'Reverse the Words', 'reverse-the-words', 'EASY', 800, 1000, 256, 1, now() - INTERVAL '355 days'),
+       (3, 'Running Sum of Array', 'running-sum-of-array', 'EASY', 800, 1000, 256, 1, now() - INTERVAL '350 days'),
+       (4, 'Count Even Digits', 'count-even-digits', 'EASY', 800, 1000, 256, 1, now() - INTERVAL '345 days'),
+       (5, 'Merge Two Sorted Lists', 'merge-two-sorted-lists', 'EASY', 900, 1000, 256, 1, now() - INTERVAL '340 days'),
+       (6, 'Valid Parentheses Stream', 'valid-parentheses-stream', 'EASY', 900, 1000, 256, 1, now() - INTERVAL '335 days'),
+       (7, 'Kth Smallest in a Stream', 'kth-smallest-in-a-stream', 'EASY', 1000, 1500, 256, 1, now() - INTERVAL '325 days'),
+       (8, 'Binary Search Boundaries', 'binary-search-boundaries', 'EASY', 1000, 1000, 256, 1, now() - INTERVAL '320 days'),
+       (9, 'Anagram Groups', 'anagram-groups', 'EASY', 1000, 1500, 256, 1, now() - INTERVAL '315 days'),
+       (10, 'Maximum Subarray Sum', 'maximum-subarray-sum', 'EASY', 1100, 1000, 256, 1, now() - INTERVAL '305 days'),
+       (11, 'Longest Unique Substring', 'longest-unique-substring', 'EASY', 1100, 1000, 256, 1, now() - INTERVAL '300 days'),
+       (12, 'Rotate Matrix In Place', 'rotate-matrix-in-place', 'EASY', 1100, 1000, 256, 1, now() - INTERVAL '295 days'),
+
+       (13, 'Meeting Rooms Scheduler', 'meeting-rooms-scheduler', 'MEDIUM', 1200, 1500, 256, 1, now() - INTERVAL '280 days'),
+       (14, 'Island Counter', 'island-counter', 'MEDIUM', 1200, 1500, 256, 1, now() - INTERVAL '275 days'),
+       (15, 'Shortest Path in a Grid', 'shortest-path-in-a-grid', 'MEDIUM', 1200, 2000, 256, 1, now() - INTERVAL '270 days'),
+       (16, 'Coin Change Minimum', 'coin-change-minimum', 'MEDIUM', 1300, 2000, 256, 1, now() - INTERVAL '255 days'),
+       (17, 'Course Schedule Order', 'course-schedule-order', 'MEDIUM', 1300, 2000, 256, 1, now() - INTERVAL '250 days'),
+       (18, 'Subsets and Sums', 'subsets-and-sums', 'MEDIUM', 1300, 2000, 256, 1, now() - INTERVAL '245 days'),
+       (19, 'Sliding Window Maximum', 'sliding-window-maximum', 'MEDIUM', 1400, 2000, 256, 1, now() - INTERVAL '230 days'),
+       (20, 'Word Ladder Length', 'word-ladder-length', 'MEDIUM', 1400, 3000, 512, 1, now() - INTERVAL '225 days'),
+       (21, 'Number of Connected Components', 'number-of-connected-components', 'MEDIUM', 1400, 2000, 256, 1, now() - INTERVAL '220 days'),
+       (22, 'Longest Increasing Subsequence', 'longest-increasing-subsequence', 'MEDIUM', 1500, 2000, 256, 1, now() - INTERVAL '205 days'),
+       (23, 'Edit Distance', 'edit-distance', 'MEDIUM', 1500, 2000, 256, 1, now() - INTERVAL '200 days'),
+       (24, 'Dijkstra on a Weighted Grid', 'dijkstra-on-a-weighted-grid', 'MEDIUM', 1500, 3000, 512, 1, now() - INTERVAL '195 days'),
+       (25, 'Trie Autocomplete', 'trie-autocomplete', 'MEDIUM', 1600, 2000, 512, 1, now() - INTERVAL '180 days'),
+       (26, 'Range Sum Queries Mutable', 'range-sum-queries-mutable', 'MEDIUM', 1600, 3000, 256, 1, now() - INTERVAL '175 days'),
+       (27, 'Modular Exponentiation', 'modular-exponentiation', 'MEDIUM', 1600, 1000, 256, 1, now() - INTERVAL '170 days'),
+       (28, 'Count Distinct Prime Factors', 'count-distinct-prime-factors', 'MEDIUM', 1600, 2000, 256, 1, now() - INTERVAL '165 days'),
+
+       (29, 'Knapsack with Bitmask', 'knapsack-with-bitmask', 'HARD', 1700, 3000, 512, 1, now() - INTERVAL '150 days'),
+       (30, 'Convex Hull Perimeter', 'convex-hull-perimeter', 'HARD', 1700, 3000, 256, 1, now() - INTERVAL '145 days'),
+       (31, 'Lowest Common Ancestor Queries', 'lowest-common-ancestor-queries', 'HARD', 1700, 3000, 512, 1, now() - INTERVAL '140 days'),
+       (32, 'Minimum Spanning Network', 'minimum-spanning-network', 'HARD', 1800, 3000, 512, 1, now() - INTERVAL '125 days'),
+       (33, 'Palindromic Substrings Count', 'palindromic-substrings-count', 'HARD', 1800, 2000, 256, 1, now() - INTERVAL '120 days'),
+       (34, 'Matrix Chain Multiplication', 'matrix-chain-multiplication', 'HARD', 1800, 2000, 256, 1, now() - INTERVAL '115 days'),
+       (35, 'Binary Lifting Ancestors', 'binary-lifting-ancestors', 'HARD', 1900, 3000, 512, 1, now() - INTERVAL '100 days'),
+       (36, 'Segment Tree with Lazy Propagation', 'segment-tree-with-lazy-propagation', 'HARD', 1900, 3000, 512, 1, now() - INTERVAL '95 days'),
+       (37, 'Counting Lattice Triangles', 'counting-lattice-triangles', 'HARD', 2000, 3000, 256, 1, now() - INTERVAL '75 days'),
+       (38, 'Max Flow Bottleneck', 'max-flow-bottleneck', 'HARD', 2100, 4000, 512, 1, now() - INTERVAL '50 days'),
+       (39, 'Suffix Automaton Substrings', 'suffix-automaton-substrings', 'HARD', 2200, 4000, 512, 1, now() - INTERVAL '25 days'),
+       (40, 'Digit DP: Sum of Digit Sums', 'digit-dp-sum-of-digit-sums', 'HARD', 2200, 3000, 256, 1, now() - INTERVAL '10 days');
+
+INSERT INTO problem_tags (problem_id, tag_id)
+VALUES (1, 2), (1, 6),
+       (2, 3), (2, 1),
+       (3, 2), (3, 7),
+       (4, 4), (4, 1),
+       (5, 13), (5, 8),
+       (6, 11), (6, 3),
+       (7, 17), (7, 5),
+       (8, 10), (8, 2),
+       (9, 6), (9, 3), (9, 5),
+       (10, 2), (10, 24),
+       (11, 9), (11, 6), (11, 3),
+       (12, 2), (12, 1),
+       (13, 16), (13, 5), (13, 17),
+       (14, 19), (14, 21),
+       (15, 20), (15, 19),
+       (16, 24),
+       (17, 19), (17, 21),
+       (18, 15), (18, 14),
+       (19, 9), (19, 12), (19, 17),
+       (20, 20), (20, 3), (20, 6),
+       (21, 23), (21, 19),
+       (22, 24), (22, 10),
+       (23, 24), (23, 3),
+       (24, 22), (24, 17), (24, 19),
+       (25, 30), (25, 3),
+       (26, 29), (26, 7),
+       (27, 26), (27, 4),
+       (28, 26), (28, 4),
+       (29, 25), (29, 24),
+       (30, 28), (30, 5), (30, 4),
+       (31, 18), (31, 21),
+       (32, 23), (32, 19), (32, 5),
+       (33, 3), (33, 24),
+       (34, 24),
+       (35, 18), (35, 24),
+       (36, 29),
+       (37, 27), (37, 4), (37, 28),
+       (38, 19), (38, 20),
+       (39, 3), (39, 30),
+       (40, 24), (40, 4), (40, 26);
+
+SELECT setval(pg_get_serial_sequence('problems', 'id'), (SELECT MAX(id) FROM problems));

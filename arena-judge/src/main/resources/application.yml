@@ -1,0 +1,15 @@
+spring:
+  application:
+    name: arena-judge
+  main:
+    web-application-type: none
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    com.codearena: ${ARENA_LOG_LEVEL:INFO}
