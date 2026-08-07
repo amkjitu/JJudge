@@ -25,11 +25,43 @@ spring:
           batch_size: 25
         order_inserts: true
         order_updates: true
+        # Collapses the N+1 that Specification-based queries would otherwise cause: a page of
+        # 20 problems loads all their tags in one extra IN(...) query rather than 20 selects.
+        # Entity graphs cannot be combined with findAll(Specification, Pageable).
+        default_batch_fetch_size: 50
 
   flyway:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: false
+
+  data:
+    web:
+      pageable:
+        default-page-size: 20
+        # Without a cap, ?size=1000000 is a free denial-of-service on every paged endpoint.
+        max-page-size: 100
+        one-indexed-parameters: false
+
+  jackson:
+    # Nullable fields (verdict, runtimeMs, statementMarkdown) are omitted rather than
+    # serialised as explicit nulls, which keeps list payloads noticeably smaller.
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+    tags-sorter: alpha
+    display-request-duration: true
+
+arena:
+  # Stand-in identity until Phase 3 wires up Spring Security. See HeaderCurrentUserProvider.
+  demo-user: ${ARENA_DEMO_USER:bob}
 
 server:
   port: ${SERVER_PORT:8080}
