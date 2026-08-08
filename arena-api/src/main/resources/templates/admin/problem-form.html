@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: page(~{::title}, ~{::main}, ~{})}"
+      lang="en">
+<head><title th:text="${editing} ? 'Edit problem · Admin' : 'New problem · Admin'">Problem</title></head>
+<body>
+<main>
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a th:href="@{/admin/problems}">Admin</a></li>
+            <li class="breadcrumb-item active" aria-current="page"
+                th:text="${editing} ? 'Edit' : 'New'">New</li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-body p-4">
+                    <h1 class="h5 mb-4" th:text="${editing} ? 'Edit problem' : 'New problem'">New problem</h1>
+
+                    <form th:object="${form}" method="post" novalidate
+                          th:action="${editing}
+                              ? @{/admin/problems/{slug}(slug=*{slug})}
+                              : @{/admin/problems}">
+
+                        <div class="mb-3">
+                            <label class="form-label" for="title">Title</label>
+                            <input class="form-control" id="title" th:field="*{title}"
+                                   th:classappend="${#fields.hasErrors('title')} ? 'is-invalid'">
+                            <div class="invalid-feedback" th:if="${#fields.hasErrors('title')}"
+                                 th:errors="*{title}">error</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label" for="slug">Slug</label>
+                            <!--/* Immutable once set: the slug is a public URL, so editing it
+                                   would break every existing link. Rendered read-only rather
+                                   than hidden so the value is still visible. */-->
+                            <input class="form-control font-monospace" id="slug" th:field="*{slug}"
+                                   th:readonly="${editing}"
+                                   th:classappend="${#fields.hasErrors('slug')} ? 'is-invalid'"
+                                   placeholder="lower-case-with-hyphens">
+                            <div class="invalid-feedback" th:if="${#fields.hasErrors('slug')}"
+                                 th:errors="*{slug}">error</div>
+                            <div class="form-text" th:if="${editing}">
+                                The slug cannot be changed after creation.
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label" for="rating">Rating</label>
+                                <input class="form-control" id="rating" type="number" min="0" max="4000"
+                                       th:field="*{rating}"
+                                       th:classappend="${#fields.hasErrors('rating')} ? 'is-invalid'">
+                                <div class="invalid-feedback" th:if="${#fields.hasErrors('rating')}"
+                                     th:errors="*{rating}">error</div>
+                                <div class="form-text">Difficulty is derived from this.</div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label" for="timeLimitMs">Time limit (ms)</label>
+                                <input class="form-control" id="timeLimitMs" type="number"
+                                       min="100" max="20000" th:field="*{timeLimitMs}"
+                                       th:classappend="${#fields.hasErrors('timeLimitMs')} ? 'is-invalid'">
+                                <div class="invalid-feedback" th:if="${#fields.hasErrors('timeLimitMs')}"
+                                     th:errors="*{timeLimitMs}">error</div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label" for="memoryLimitMb">Memory limit (MB)</label>
+                                <input class="form-control" id="memoryLimitMb" type="number"
+                                       min="16" max="1024" th:field="*{memoryLimitMb}"
+                                       th:classappend="${#fields.hasErrors('memoryLimitMb')} ? 'is-invalid'">
+                                <div class="invalid-feedback" th:if="${#fields.hasErrors('memoryLimitMb')}"
+                                     th:errors="*{memoryLimitMb}">error</div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label" for="tags">Tags</label>
+                            <select class="form-select" id="tags" th:field="*{tags}" multiple size="10"
+                                    th:classappend="${#fields.hasErrors('tags')} ? 'is-invalid'">
+                                <option th:each="t : ${allTags}" th:value="${t}" th:text="${t}">dp</option>
+                            </select>
+                            <div class="invalid-feedback" th:if="${#fields.hasErrors('tags')}"
+                                 th:errors="*{tags}">error</div>
+                            <div class="form-text">Ctrl-click (Cmd-click) to select several.</div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a class="btn btn-outline-secondary" th:href="@{/admin/problems}">Cancel</a>
+                            <button class="btn btn-primary" type="submit"
+                                    th:text="${editing} ? 'Save changes' : 'Create problem'">Create</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</main>
+</body>
+</html>

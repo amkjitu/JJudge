@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: page(~{::title}, ~{::main}, ~{})}"
+      lang="en">
+<head><title>Admin &middot; Problems</title></head>
+<body>
+<main>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h4 mb-0">Problems <span class="badge text-bg-warning align-middle">admin</span></h1>
+        <a class="btn btn-primary btn-sm" th:href="@{/admin/problems/new}">New problem</a>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle bg-white">
+            <thead class="table-light">
+            <tr>
+                <th scope="col">Title</th>
+                <th scope="col">Slug</th>
+                <th scope="col" class="text-end">Rating</th>
+                <th scope="col" class="text-end">Difficulty</th>
+                <th scope="col" class="text-end" style="width: 12rem">Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="problem : ${page.content}">
+                <td th:text="${problem.title}">Title</td>
+                <td><code th:text="${problem.slug}">slug</code></td>
+                <td class="text-end" th:text="${problem.rating}">1500</td>
+                <td class="text-end">
+                    <span th:replace="~{fragments/bits :: difficulty(${problem.difficulty})}"></span>
+                </td>
+                <td class="text-end">
+                    <a class="btn btn-outline-secondary btn-sm"
+                       th:href="@{/admin/problems/{slug}/edit(slug=${problem.slug})}">Edit</a>
+                    <!--/*
+                      A form, not a link: deleting on GET means any prefetcher or crawler that
+                      follows the URL wipes the row. The POST also carries the CSRF token
+                      Thymeleaf injects automatically.
+                    */-->
+                    <form class="d-inline" method="post"
+                          th:action="@{/admin/problems/{slug}/delete(slug=${problem.slug})}"
+                          th:attr="onsubmit=|return confirm('Delete ${problem.slug}? This also removes its submissions.')|">
+                        <button class="btn btn-outline-danger btn-sm" type="submit">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div th:replace="~{fragments/bits :: pager(${page}, '/admin/problems')}"></div>
+
+</main>
+</body>
+</html>

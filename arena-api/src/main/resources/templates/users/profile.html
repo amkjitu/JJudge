@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: page(~{::title}, ~{::main}, ~{::scripts})}"
+      lang="en">
+<head><title th:text="${profile.username} + ' · CodeArena'">Profile</title></head>
+<body>
+<main>
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h4 mb-1" th:text="${profile.username}">bob</h1>
+            <span class="small text-muted">
+                Joined <span th:text="${#temporals.format(profile.createdAt, 'MMMM yyyy')}">May 2025</span>
+            </span>
+        </div>
+        <div class="text-end">
+            <div class="fs-3 fw-bold" th:text="${profile.rating}">1450</div>
+            <div class="small text-muted">Rating</div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card text-center"><div class="card-body py-3">
+                <div class="fs-4 fw-bold" th:text="${profile.solvedCount}">14</div>
+                <div class="small text-muted">Problems solved</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card text-center"><div class="card-body py-3">
+                <div class="fs-4 fw-bold" th:text="${profile.submissionCount}">22</div>
+                <div class="small text-muted">Submissions</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card text-center"><div class="card-body py-3">
+                <div class="fs-4 fw-bold" th:text="${#lists.size(profile.tagStats)}">18</div>
+                <div class="small text-muted">Topics touched</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card text-center"><div class="card-body py-3">
+                <div class="fs-4 fw-bold"
+                     th:text="${#lists.isEmpty(profile.tagStats)} ? '—' : ${profile.tagStats[0].tag}">dp</div>
+                <div class="small text-muted">Weakest topic</div>
+            </div></div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card h-100"><div class="card-body">
+                <h2 class="h6 text-uppercase text-muted mb-3">Solved by topic</h2>
+                <canvas id="tagChart" height="240"></canvas>
+                <p class="small text-muted mt-2 mb-0">Top topics by problems solved.</p>
+            </div></div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card h-100"><div class="card-body">
+                <h2 class="h6 text-uppercase text-muted mb-3">Progress over time</h2>
+                <canvas id="progressChart" height="240"></canvas>
+                <p class="small text-muted mt-2 mb-0">
+                    Cumulative distinct problems solved. Re-solving one already cleared does not
+                    move the line.
+                </p>
+            </div></div>
+        </div>
+    </div>
+
+    <h2 class="h6 text-uppercase text-muted mt-4 mb-2">Every topic, weakest first</h2>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle bg-white">
+            <thead class="table-light">
+            <tr>
+                <th scope="col">Topic</th>
+                <th scope="col" class="text-end">Solved</th>
+                <th scope="col" class="text-end">Attempted</th>
+                <th scope="col" style="width: 40%">Proficiency</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="stat : ${profile.tagStats}">
+                <td>
+                    <a th:href="@{/problems(tag=${stat.tag})}" th:text="${stat.tag}"
+                       class="text-decoration-none">dp</a>
+                </td>
+                <td class="text-end" th:text="${stat.solvedCount}">1</td>
+                <td class="text-end" th:text="${stat.attemptCount}">4</td>
+                <td>
+                    <div class="progress" style="height: 0.6rem" role="progressbar"
+                         th:attr="aria-valuenow=${#numbers.formatDecimal(stat.proficiency * 100, 1, 0)}"
+                         aria-valuemin="0" aria-valuemax="100">
+                        <div class="progress-bar"
+                             th:classappend="${stat.proficiency < 0.34} ? 'bg-danger'
+                                             : (${stat.proficiency < 0.67} ? 'bg-warning' : 'bg-success')"
+                             th:style="'width:' + ${#numbers.formatDecimal(stat.proficiency * 100, 1, 0)} + '%'">
+                        </div>
+                    </div>
+                </td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(profile.tagStats)}">
+                <td colspan="4" class="text-center text-muted py-4">No attempts recorded yet.</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+</main>
+
+<th:block th:fragment="scripts">
+    <script th:src="@{/webjars/chartjs/4.4.3/dist/chart.umd.js}"></script>
+    <!--/*
+      The chart data is serialised to JSON in the controller and injected here as two strings.
+      th:inline="javascript" escapes what it interpolates, so a tag or username containing a
+      quote cannot break out of the literal - which is exactly what building these arrays with
+      a Thymeleaf loop would risk.
+    */-->
+    <script th:inline="javascript">
+        window.arenaChartData = {
+            solvedByTag: /*[[${solvedByTagJson}]]*/ '[]',
+            progress: /*[[${progressJson}]]*/ '[]'
+        };
+    </script>
+    <script th:src="@{/js/charts.js}"></script>
+</th:block>
+</body>
+</html>

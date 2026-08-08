@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: page(~{::title}, ~{::main}, ~{})}"
+      lang="en">
+<head><title th:text="'Submission #' + ${submission.id} + ' · CodeArena'">Submission</title></head>
+<body>
+<main>
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a th:href="@{/submissions}">My submissions</a></li>
+            <li class="breadcrumb-item active" aria-current="page"
+                th:text="'#' + ${submission.id}">#1</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+        <h1 class="h4 mb-0">
+            <a th:href="@{/problems/{slug}(slug=${submission.problemSlug})}"
+               th:text="${submission.problemTitle}" class="text-decoration-none">Title</a>
+        </h1>
+        <div>
+            <span class="badge text-bg-light border" th:text="${submission.language}">JAVA</span>
+            <span th:replace="~{fragments/bits :: verdict(${submission.verdict}, ${submission.status})}"></span>
+        </div>
+    </div>
+
+    <dl class="row small text-muted">
+        <dt class="col-sm-2">Submitted</dt>
+        <dd class="col-sm-4"
+            th:text="${#temporals.format(submission.submittedAt, 'yyyy-MM-dd HH:mm:ss')}">date</dd>
+        <dt class="col-sm-2">Runtime</dt>
+        <dd class="col-sm-4"
+            th:text="${submission.runtimeMs != null ? submission.runtimeMs + ' ms' : 'not judged yet'}">—</dd>
+    </dl>
+
+    <div th:if="${submission.status.name() != 'DONE'}" class="alert alert-secondary">
+        This submission is <strong th:text="${submission.status}">QUEUED</strong>. The judge
+        worker arrives in Phase 6; until then submissions stay queued.
+    </div>
+
+    <h2 class="h6 text-uppercase text-muted">Source</h2>
+    <!--/* th:text, never th:utext: this is user-submitted code and must be escaped. */-->
+    <pre class="bg-dark text-light p-3 rounded overflow-auto"><code th:text="${sourceCode}">code</code></pre>
+
+</main>
+</body>
+</html>

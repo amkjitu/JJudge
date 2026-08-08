@@ -9,9 +9,10 @@ A competitive-programming practice platform: browse problems, submit solutions, 
 asynchronously judged verdicts, climb a leaderboard — and get told *what to solve next* by a
 recommendation engine that models your per-topic proficiency.
 
-> **Status: Phase 3 of 8 complete.** Domain model, migrations, seed data, a versioned REST API
-> with RFC 7807 errors and OpenAPI docs, and JWT + OAuth2 authentication with rotating refresh
-> tokens and per-user rate limiting — all running in Docker. The build order and what each
+> **Status: Phase 4 of 8 complete.** Domain model, migrations, seed data, a versioned REST API
+> with RFC 7807 errors and OpenAPI docs, JWT + OAuth2 authentication with rotating refresh
+> tokens and per-user rate limiting, and a server-rendered Thymeleaf UI with a CodeMirror
+> editor and Chart.js progress charts — all running in Docker. The build order and what each
 > phase adds is in [Roadmap](#roadmap).
 
 <!-- TODO(phase-8): hero screenshot / GIF goes here -->
@@ -29,6 +30,7 @@ recommendation engine that models your per-topic proficiency.
 - [Getting started](#getting-started)
 - [API](#api)
 - [Security](#security)
+- [Web UI](#web-ui)
 - [Testing](#testing)
 - [Project structure](#project-structure)
 - [Roadmap](#roadmap)
@@ -86,7 +88,7 @@ Four Maven modules: `arena-common` (shared enums and event contracts), `arena-ap
 | Cache / ranking | Redis sorted sets *(Phase 5)* |
 | Messaging | Apache Kafka in KRaft mode *(Phase 6)* |
 | Security | Spring Security 6, BCrypt, HS256 JWT access tokens, rotating opaque refresh tokens, OAuth2 Google |
-| Web UI | Thymeleaf, Bootstrap 5, CodeMirror, Chart.js *(Phase 4)* |
+| Web UI | Thymeleaf, Bootstrap 5, CodeMirror, Chart.js — served as WebJars, no CDN |
 | AI | Spring AI with Ollama, provider-configurable to OpenAI *(Phase 7)* |
 | API | Versioned `/api/v1`, MapStruct DTO mapping, Bean Validation, RFC 7807 errors |
 | API docs | springdoc-openapi at `/swagger-ui.html` |
@@ -367,8 +369,8 @@ side of that trade.
 
 | Command | What runs | Needs Docker |
 |---|---|---|
-| `./mvnw test` | unit tests only (`*Test`) — 65 tests | no |
-| `./mvnw verify` | unit **and** integration tests (`*IT`) — 179 tests | yes |
+| `./mvnw test` | unit and web-slice tests (`*Test`) — 100 tests | no |
+| `./mvnw verify` | unit **and** integration tests (`*IT`) — 214 tests | yes |
 
 Integration tests use Testcontainers against a real PostgreSQL 16 image — never H2 — so
 migrations, `CHECK` constraints, `FULL OUTER JOIN` and Postgres-specific SQL are all exercised
@@ -381,6 +383,7 @@ Three layers, each testing something the others cannot:
 |---|---|---|
 | Unit | plain JUnit + Mockito | business rules — difficulty derivation, tag resolution, proficiency smoothing, LRU eviction |
 | Web slice | `@WebMvcTest`, mocked services | the HTTP contract — status codes, JSON shape, error envelope |
+| UI slice | `@WebMvcTest` rendering real Thymeleaf | that every page renders, forms carry a CSRF token, and output is escaped |
 | Full stack | `@SpringBootTest` + Testcontainers | the Specification SQL, entity graphs, DB constraints, the real security chain, real session semantics |
 
 Authorization tests are deliberately weighted towards the **negative** cases. A test proving an
@@ -426,6 +429,70 @@ What the suite covers:
 - a forged signature, a foreign issuer and an expired token are each rejected
 - registration never echoes the password back, in success *or* validation responses
 - a refused admin write genuinely did not happen — asserted by reading the row back
+- every Thymeleaf page actually renders: the UI slices run the template engine and assert
+  against the produced HTML, so a fragment typo fails the build rather than the demo
+- submitted source is escaped, not interpreted — `<script>` comes back as `&lt;script&gt;`
+
+---
+
+## Web UI
+
+Server-rendered Thymeleaf, reachable at <http://localhost:8080/>.
+
+| Page | Path |
+|---|---|
+| Home / dashboard | `/` |
+| Problem catalogue with filters | `/problems` |
+| Problem detail + code editor | `/problems/{slug}` |
+| Submission history / detail | `/submissions`, `/submissions/{id}` |
+| Profile with charts | `/users/{username}`, `/me` |
+| Leaderboard | `/leaderboard` |
+| Admin problem CRUD | `/admin/problems` |
+
+### Two authentication mechanisms, on purpose
+
+`/api/**` is a **stateless bearer-token** chain; everything else is a **session** chain with
+form login. That is not indecision — a server-rendered page has nowhere to keep a JWT that
+JavaScript cannot also read, so using tokens for the UI would trade a `HttpOnly` session cookie
+for an XSS-readable credential. The session chain keeps CSRF protection on precisely because
+authentication rides on a cookie; the API chain disables it precisely because it does not.
+
+Both chains resolve identity through the same `CurrentUserProvider`, so services never know
+which one a request came through.
+
+### Front-end assets are WebJars, not CDN links
+
+Bootstrap, CodeMirror and Chart.js are Maven dependencies served from the jar. The container
+renders correctly with no outbound network access, and no third party sits inside the page's
+trust boundary. Versions live in the parent pom and appear in exactly one template.
+
+### Notes worth calling out
+
+- **The editor is progressive enhancement.** CodeMirror upgrades a real `<textarea>`; with
+  JavaScript disabled the form still submits the code rather than silently posting nothing.
+- **Chart data is serialised to JSON server-side**, then handed to `th:inline="javascript"` as
+  a single string. Building JS array literals out of Thymeleaf loops is how XSS gets into a
+  page — one tag containing a quote breaks out of the string.
+- **Form-backing beans are mutable classes, not the API's records.** `th:field` has to write
+  back into the object to re-populate a form after a validation failure, and a record cannot be
+  written to.
+- **Delete is a POST form, never a link.** A `GET` delete is one crawler away from data loss.
+- **A rejected password is never re-rendered** into the registration form.
+
+### Two bugs that only surfaced in the browser
+
+Both passed the test suite and failed the moment the flow was walked by hand:
+
+1. **Another user's submission returned 500, not 403.** The controller throws
+   `AccessDeniedException`, and the UI advice's catch-all `Exception` handler swallowed it —
+   reporting "the server broke" for what was really "not yours", and logging it at `ERROR` on
+   every probe. Fixed with an explicit handler; Spring resolves by exception-type distance, not
+   declaration order.
+2. **A CSRF failure on a form POST returned 405.** `accessDeniedPage` *forwards*, and a forward
+   preserves the request method, so the POST arrived at a `@GetMapping`-only handler. The user
+   saw "Method Not Allowed" for what was really an expired session.
+
+Both now have regression tests naming the symptom.
 
 ### Note on Docker API versions
 
@@ -476,7 +543,7 @@ Override with `-Ddocker.api.version=…` if your engine needs something differen
 | 1 | Multi-module scaffold, entities, migrations, seed data, repository tests | ✅ done |
 | 2 | REST API, DTOs, validation, RFC 7807 errors, OpenAPI, `JdbcTemplate` report | ✅ done |
 | 3 | Spring Security, JWT access/refresh, OAuth2 Google, rate limiting | ✅ done |
-| 4 | Thymeleaf UI: Bootstrap, CodeMirror editor, Chart.js progress charts | ⬜ |
+| 4 | Thymeleaf UI: Bootstrap, CodeMirror editor, Chart.js progress charts | ✅ done |
 | 5 | Recommendation engine, Redis leaderboard | ⬜ |
 | 6 | Kafka pipeline, `arena-judge` worker, SSE live verdicts | ⬜ |
 | 7 | MongoDB statements/sources, `arena-ai` hints and complexity analysis | ⬜ |

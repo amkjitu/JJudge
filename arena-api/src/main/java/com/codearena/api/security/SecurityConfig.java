@@ -11,6 +11,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.SessionManagementConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -24,6 +25,8 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
@@ -89,7 +92,13 @@ public class SecurityConfig {
     }
 
     /**
-     * Everything outside {@code /api}: Swagger, actuator, and the OAuth2 login redirect flow.
+     * The browser chain: the Thymeleaf UI, Swagger, actuator, and the OAuth2 login redirect.
+     *
+     * <p>Session-based rather than token-based, deliberately. A server-rendered page has
+     * nowhere to keep a bearer token that JavaScript cannot also read, so putting a JWT in
+     * {@code localStorage} for the UI would trade a well-understood session cookie for an
+     * XSS-readable credential. The session cookie is {@code HttpOnly}, and CSRF protection
+     * stays on precisely because authentication now rides on a cookie.
      */
     @Bean
     @Order(2)
@@ -98,20 +107,54 @@ public class SecurityConfig {
                                               ObjectProvider<ClientRegistrationRepository> clientRegistrations,
                                               ObjectProvider<OAuth2LoginSuccessHandler> oauth2SuccessHandler)
             throws Exception {
+        RequestMatcher machineReadable = new AntPathRequestMatcher("/actuator/**");
+
         http
-                // Without this, an anonymous request to a protected actuator endpoint gets a
-                // bare 403: with no authentication mechanism configured on this chain, Spring
-                // has nothing to challenge with and reports "denied" rather than "who are you?".
-                // 401 is the honest answer, and it keeps the error shape uniform.
-                .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint(handlers)
-                        .accessDeniedHandler(handlers))
                 .authorizeHttpRequests(auth -> auth
+                        // Static assets and the WebJar-served front-end libraries.
+                        .requestMatchers("/css/**", "/js/**", "/webjars/**", "/favicon.ico").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
                         .requestMatchers("/actuator/**").hasRole("ADMIN")
-                        .requestMatchers("/", "/error", "/login/**", "/oauth2/**").permitAll()
-                        .anyRequest().permitAll());
+                        // Browsing is public; the catalogue is the shop window.
+                        .requestMatchers(HttpMethod.GET,
+                                "/", "/error", "/error/**", "/login", "/register",
+                                "/problems", "/problems/*", "/users/*", "/leaderboard").permitAll()
+                        .requestMatchers("/login", "/register", "/oauth2/**", "/login/**").permitAll()
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
+                        .anyRequest().authenticated())
+
+                .formLogin(form -> form
+                        .loginPage("/login")
+                        .loginProcessingUrl("/login")
+                        .usernameParameter("usernameOrEmail")
+                        // No alwaysUse: Spring replays the originally requested page, so a
+                        // deep link into a protected page survives the login detour.
+                        .defaultSuccessUrl("/")
+                        .failureUrl("/login?error")
+                        .permitAll())
+
+                .logout(logout -> logout
+                        .logoutUrl("/logout")
+                        .logoutSuccessUrl("/?loggedOut")
+                        .deleteCookies(RefreshTokenCookies.COOKIE_NAME)
+                        .invalidateHttpSession(true)
+                        .clearAuthentication(true))
+
+                .sessionManagement(session -> session
+                        // Fresh session id on login, so a session id an attacker planted before
+                        // authentication is not the one that ends up authenticated.
+                        .sessionFixation(SessionManagementConfigurer.SessionFixationConfigurer::newSession)
+                        .maximumSessions(5))
+
+                .exceptionHandling(ex -> ex
+                        // Actuator is consumed by machines: answer 401 with a problem document
+                        // rather than a 302 to an HTML login form no scraper can follow.
+                        .defaultAuthenticationEntryPointFor(handlers, machineReadable)
+                        .defaultAccessDeniedHandlerFor(handlers, machineReadable)
+                        // Everything else is a browser, so send it to the login page. Spring's
+                        // formLogin entry point is applied automatically for the remainder.
+                        .accessDeniedPage("/error/403"));
 
         // Google login is optional configuration. Without a client registration there is no
         // ClientRegistrationRepository bean, and calling oauth2Login() would fail at startup -
@@ -120,7 +163,9 @@ public class SecurityConfig {
         ClientRegistrationRepository registrations = clientRegistrations.getIfAvailable();
         if (registrations != null) {
             OAuth2LoginSuccessHandler successHandler = oauth2SuccessHandler.getObject();
-            http.oauth2Login(oauth2 -> oauth2.successHandler(successHandler));
+            http.oauth2Login(oauth2 -> oauth2
+                    .loginPage("/login")
+                    .successHandler(successHandler));
         }
 
         return http.build();

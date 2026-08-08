@@ -39,7 +39,7 @@ import java.util.List;
  * <p>All responses are served as {@code application/problem+json}, which Spring sets
  * automatically for {@code ProblemDetail} return values.
  */
-@RestControllerAdvice
+@RestControllerAdvice(basePackages = "com.codearena.api.web")
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);

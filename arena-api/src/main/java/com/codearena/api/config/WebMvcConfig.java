@@ -29,9 +29,14 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        // Scoped to the submission endpoint only. Reads are cheap and browsing the catalogue
+        // Scoped to the submission endpoints only. Reads are cheap and browsing the catalogue
         // unauthenticated is a supported use, so throttling those would cost more than it buys.
+        //
+        // Both entry points are listed: the JSON API and the browser form post. They share a
+        // quota because they are the same action - otherwise the limit would be trivially
+        // doubled by alternating between them.
         submissionRateLimitInterceptor.ifAvailable(interceptor ->
-                registry.addInterceptor(interceptor).addPathPatterns("/api/v1/submissions"));
+                registry.addInterceptor(interceptor)
+                        .addPathPatterns("/api/v1/submissions", "/problems/*/submit"));
     }
 }

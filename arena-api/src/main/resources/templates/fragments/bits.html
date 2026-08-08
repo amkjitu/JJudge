@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<!--/* Small reusable pieces. Nothing here renders on its own. */-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<!--/* Difficulty pill, coloured by bucket. */-->
+<span th:fragment="difficulty(value)"
+      class="badge rounded-pill"
+      th:classappend="${value.name() == 'EASY' ? 'text-bg-success'
+                      : (value.name() == 'MEDIUM' ? 'text-bg-warning' : 'text-bg-danger')}"
+      th:text="${value}">EASY</span>
+
+<!--/* Verdict pill. A null verdict means the judge has not finished with it yet. */-->
+<span th:fragment="verdict(value, status)"
+      class="badge"
+      th:classappend="${value == null ? 'text-bg-secondary'
+                      : (value.name() == 'AC' ? 'text-bg-success' : 'text-bg-danger')}"
+      th:text="${value != null ? value : status}">AC</span>
+
+<!--/*
+  Pagination for pages whose only query parameters are page and size.
+
+  The problem list does not use this - it has filters to carry across, and losing them on
+  "next page" is the classic way paginated filters break, so it builds its own links with the
+  filter values spelled out.
+*/-->
+<nav th:fragment="pager(page, baseUrl)" th:if="${page.totalPages > 1}" aria-label="Pagination">
+    <ul class="pagination pagination-sm justify-content-center mt-4">
+        <li class="page-item" th:classappend="${page.first} ? 'disabled'">
+            <a class="page-link" th:href="@{${baseUrl}(page=${page.number - 1}, size=${page.size})}">Previous</a>
+        </li>
+        <li class="page-item"
+            th:each="i : ${#numbers.sequence(0, page.totalPages - 1)}"
+            th:classappend="${i == page.number} ? 'active'">
+            <a class="page-link" th:href="@{${baseUrl}(page=${i}, size=${page.size})}" th:text="${i + 1}">1</a>
+        </li>
+        <li class="page-item" th:classappend="${page.last} ? 'disabled'">
+            <a class="page-link" th:href="@{${baseUrl}(page=${page.number + 1}, size=${page.size})}">Next</a>
+        </li>
+    </ul>
+</nav>
+
+<!--/* Field-level validation message, rendered only when the field has an error. */-->
+<div th:fragment="fieldError(field)" th:if="${#fields.hasErrors(field)}"
+     class="invalid-feedback d-block" th:errors="*{__${field}__}">error</div>
+
+</body>
+</html>

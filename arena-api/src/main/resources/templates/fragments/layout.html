@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<!--/*
+  Shared page shell.
+
+  Pages call:  <html th:replace="~{fragments/layout :: page(~{::title}, ~{::main}, ~{::scripts})}">
+  passing their own <title>, <main> and an optional <th:block th:fragment="scripts"> - so a page
+  that needs no JavaScript simply passes ~{} and no script tags are emitted.
+
+  WebJar versions are hard-coded here and only here; they are declared as properties in the
+  parent pom, so bump both together.
+*/-->
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:fragment="page(title, content, scripts)"
+      lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:replace="${title}">CodeArena</title>
+    <link rel="stylesheet" th:href="@{/webjars/bootstrap/5.3.3/css/bootstrap.min.css}">
+    <link rel="stylesheet" th:href="@{/css/arena.css}">
+</head>
+<body class="d-flex flex-column min-vh-100 bg-body-tertiary">
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand fw-bold" th:href="@{/}">
+            <span class="text-warning">&lt;/&gt;</span> CodeArena
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                data-bs-target="#nav" aria-controls="nav" aria-expanded="false"
+                aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="nav">
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item">
+                    <a class="nav-link" th:href="@{/problems}">Problems</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" th:href="@{/leaderboard}">Leaderboard</a>
+                </li>
+                <li class="nav-item" sec:authorize="isAuthenticated()">
+                    <a class="nav-link" th:href="@{/submissions}">My submissions</a>
+                </li>
+                <li class="nav-item" sec:authorize="hasRole('ADMIN')">
+                    <a class="nav-link text-warning" th:href="@{/admin/problems}">Admin</a>
+                </li>
+            </ul>
+
+            <ul class="navbar-nav">
+                <li class="nav-item" sec:authorize="!isAuthenticated()">
+                    <a class="nav-link" th:href="@{/login}">Sign in</a>
+                </li>
+                <li class="nav-item" sec:authorize="!isAuthenticated()">
+                    <a class="btn btn-warning btn-sm ms-lg-2 mt-2 mt-lg-0" th:href="@{/register}">
+                        Create account
+                    </a>
+                </li>
+
+                <li class="nav-item dropdown" sec:authorize="isAuthenticated()">
+                    <a class="nav-link dropdown-toggle" href="#" role="button"
+                       data-bs-toggle="dropdown" aria-expanded="false">
+                        <span sec:authentication="name">user</span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" th:href="@{/me}">My profile</a></li>
+                        <li><a class="dropdown-item" th:href="@{/submissions}">My submissions</a></li>
+                        <li>
+                            <hr class="dropdown-divider">
+                        </li>
+                        <li>
+                            <!--/* POST, not a link: a GET logout can be triggered by any
+                                   <img> tag on a page the user visits. */-->
+                            <form th:action="@{/logout}" method="post" class="px-3 py-1">
+                                <button class="btn btn-outline-secondary btn-sm w-100" type="submit">
+                                    Sign out
+                                </button>
+                            </form>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<div class="container py-4 flex-grow-1">
+    <div th:if="${flash}" class="alert alert-success alert-dismissible fade show" role="alert">
+        <span th:text="${flash}">Done.</span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+
+    <main th:replace="${content}">
+        <p>Page content.</p>
+    </main>
+</div>
+
+<footer class="border-top py-3 mt-auto bg-white">
+    <div class="container d-flex flex-wrap justify-content-between small text-muted">
+        <span>CodeArena &middot; a competitive programming practice platform</span>
+        <span>
+            <a class="link-secondary" th:href="@{/swagger-ui.html}">API docs</a>
+            &middot;
+            <a class="link-secondary" href="https://github.com/amkjitu/codearena">Source</a>
+        </span>
+    </div>
+</footer>
+
+<script th:src="@{/webjars/bootstrap/5.3.3/js/bootstrap.bundle.min.js}"></script>
+<th:block th:replace="${scripts} ?: ~{}"></th:block>
+</body>
+</html>

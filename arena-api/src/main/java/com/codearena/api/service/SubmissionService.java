@@ -17,7 +17,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Like {@link ProblemService}, this returns DTOs rather than entities: with open-in-view
@@ -101,6 +103,32 @@ public class SubmissionService {
         Problem problem = problemService.getBySlug(slug);
         return submissionRepository.findByProblemIdOrderBySubmittedAtDesc(problem.getId(), pageable)
                 .map(submissionMapper::toResponse);
+    }
+
+    /**
+     * Ids of every problem the user has solved. The problem list uses this to tick the solved
+     * column: one query for the whole page rather than a lookup per row.
+     */
+    public Set<Long> solvedProblemIds(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User", username));
+        return submissionRepository.findSolvedProblemIds(user.getId());
+    }
+
+    /**
+     * One user's attempts at one problem, newest first. Bounded to the most recent handful -
+     * this feeds a sidebar on the problem page, not a paginated history.
+     */
+    public List<SubmissionResponse> findByUsernameAndProblem(String username, String slug) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User", username));
+        Problem problem = problemService.getBySlug(slug);
+
+        return submissionRepository
+                .findTop10ByUserIdAndProblemIdOrderBySubmittedAtDesc(user.getId(), problem.getId())
+                .stream()
+                .map(submissionMapper::toResponse)
+                .toList();
     }
 
     private Submission requireSubmission(Long id) {

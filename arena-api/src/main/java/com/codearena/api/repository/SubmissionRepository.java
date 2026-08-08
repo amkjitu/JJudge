@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -32,6 +33,9 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
 
     @EntityGraph(attributePaths = {"user", "problem"})
     Page<Submission> findByProblemIdOrderBySubmittedAtDesc(Long problemId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"user", "problem"})
+    List<Submission> findTop10ByUserIdAndProblemIdOrderBySubmittedAtDesc(Long userId, Long problemId);
 
     long countByUserId(Long userId);
 
@@ -66,4 +70,35 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
     List<Object[]> countAttemptsPerProblem(@Param("userId") Long userId);
 
     boolean existsByUserIdAndProblemIdAndVerdict(Long userId, Long problemId, Verdict verdict);
+
+    /**
+     * Distinct problems solved, for several users at once. Two cheap queries beat one clever
+     * one here: the alternative is an outer join from User to Submission with a condition on
+     * the join, which Hibernate will express but which reads far worse than this.
+     * Each row is {@code [userId, solvedCount]}.
+     */
+    @Query("""
+            SELECT s.user.id, COUNT(DISTINCT s.problem.id) FROM Submission s
+            WHERE s.verdict = :verdict AND s.user.id IN :userIds
+            GROUP BY s.user.id
+            """)
+    List<Object[]> countSolvedForUsers(@Param("userIds") Collection<Long> userIds,
+                                       @Param("verdict") Verdict verdict);
+
+    /**
+     * Every accepted submission for a user in chronological order, as
+     * {@code [problemId, submittedAt]}.
+     *
+     * <p>Returned raw rather than aggregated in SQL because the interesting series is
+     * "cumulative <em>distinct</em> problems over time", and the first accepted submission per
+     * problem is what counts - a window function would express it, but the dataset per user is
+     * tens of rows and folding it in Java stays readable and testable without a database.
+     */
+    @Query("""
+            SELECT s.problem.id, s.submittedAt FROM Submission s
+            WHERE s.user.id = :userId AND s.verdict = :verdict
+            ORDER BY s.submittedAt ASC
+            """)
+    List<Object[]> findAcceptedTimeline(@Param("userId") Long userId,
+                                        @Param("verdict") Verdict verdict);
 }

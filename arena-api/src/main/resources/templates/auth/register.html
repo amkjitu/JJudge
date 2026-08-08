@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: page(~{::title}, ~{::main}, ~{})}"
+      lang="en">
+<head><title>Create account &middot; CodeArena</title></head>
+<body>
+<main>
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <h1 class="h4 mb-3">Create an account</h1>
+
+                    <form th:action="@{/register}" th:object="${form}" method="post" novalidate>
+                        <div class="mb-3">
+                            <label class="form-label" for="username">Username</label>
+                            <input class="form-control" id="username" th:field="*{username}"
+                                   th:classappend="${#fields.hasErrors('username')} ? 'is-invalid'"
+                                   autocomplete="username" autofocus>
+                            <div class="invalid-feedback" th:if="${#fields.hasErrors('username')}"
+                                 th:errors="*{username}">error
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label" for="email">Email</label>
+                            <input class="form-control" id="email" type="email" th:field="*{email}"
+                                   th:classappend="${#fields.hasErrors('email')} ? 'is-invalid'"
+                                   autocomplete="email">
+                            <div class="invalid-feedback" th:if="${#fields.hasErrors('email')}"
+                                 th:errors="*{email}">error
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label" for="password">Password</label>
+                            <input class="form-control" id="password" type="password"
+                                   th:field="*{password}"
+                                   th:classappend="${#fields.hasErrors('password')} ? 'is-invalid'"
+                                   autocomplete="new-password">
+                            <div class="invalid-feedback" th:if="${#fields.hasErrors('password')}"
+                                 th:errors="*{password}">error
+                            </div>
+                            <div class="form-text">At least 10 characters. Length beats symbols.</div>
+                        </div>
+
+                        <button class="btn btn-primary w-100" type="submit">Create account</button>
+                    </form>
+
+                    <div th:if="${googleEnabled}">
+                        <div class="text-center text-muted my-3 small">or</div>
+                        <a class="btn btn-outline-secondary w-100"
+                           th:href="@{/oauth2/authorization/google}">Continue with Google</a>
+                    </div>
+
+                    <p class="text-center text-muted small mt-4 mb-0">
+                        Already registered? <a th:href="@{/login}">Sign in</a>.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+</body>
+</html>

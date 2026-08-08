@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: page(~{::title}, ~{::main}, ~{})}"
+      lang="en">
+<head><title>Sign in &middot; CodeArena</title></head>
+<body>
+<main>
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <h1 class="h4 mb-3">Sign in</h1>
+
+                    <div th:if="${param.error}" class="alert alert-danger py-2">
+                        <!--/* Deliberately vague: naming which half was wrong turns the login
+                               form into an account-enumeration oracle. */-->
+                        Those credentials did not match an account.
+                    </div>
+                    <div th:if="${param.logout}" class="alert alert-secondary py-2">
+                        You have been signed out.
+                    </div>
+
+                    <!--/* No th:object: the fields are read by Spring Security's filter, not
+                           bound to a model attribute. Thymeleaf still adds the CSRF hidden
+                           input automatically because th:action is present. */-->
+                    <form th:action="@{/login}" method="post">
+                        <div class="mb-3">
+                            <label class="form-label" for="usernameOrEmail">Username or email</label>
+                            <input class="form-control" id="usernameOrEmail" name="usernameOrEmail"
+                                   autocomplete="username" required autofocus>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="password">Password</label>
+                            <input class="form-control" id="password" name="password"
+                                   type="password" autocomplete="current-password" required>
+                        </div>
+                        <button class="btn btn-primary w-100" type="submit">Sign in</button>
+                    </form>
+
+                    <div th:if="${googleEnabled}">
+                        <div class="text-center text-muted my-3 small">or</div>
+                        <a class="btn btn-outline-secondary w-100"
+                           th:href="@{/oauth2/authorization/google}">Continue with Google</a>
+                    </div>
+
+                    <p class="text-center text-muted small mt-4 mb-0">
+                        No account? <a th:href="@{/register}">Create one</a>.
+                    </p>
+                </div>
+            </div>
+
+            <div class="card mt-3 border-0 bg-transparent">
+                <div class="card-body small text-muted">
+                    <strong>Demo accounts</strong> &mdash; <code>bob</code> / <code>Password123!</code>,
+                    <code>admin</code> / <code>Admin123!</code>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+</body>
+</html>

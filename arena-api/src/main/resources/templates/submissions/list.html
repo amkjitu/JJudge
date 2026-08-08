@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: page(~{::title}, ~{::main}, ~{})}"
+      lang="en">
+<head><title>My submissions &middot; CodeArena</title></head>
+<body>
+<main>
+
+    <h1 class="h4 mb-3">My submissions</h1>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle bg-white">
+            <thead class="table-light">
+            <tr>
+                <th scope="col">#</th>
+                <th scope="col">Problem</th>
+                <th scope="col">Language</th>
+                <th scope="col">Submitted</th>
+                <th scope="col" class="text-end">Runtime</th>
+                <th scope="col" class="text-end">Verdict</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="s : ${page.content}">
+                <td><a th:href="@{/submissions/{id}(id=${s.id})}" th:text="${s.id}">1</a></td>
+                <td>
+                    <a th:href="@{/problems/{slug}(slug=${s.problemSlug})}"
+                       th:text="${s.problemTitle}" class="text-decoration-none">Title</a>
+                </td>
+                <td class="small text-muted" th:text="${s.language}">JAVA</td>
+                <td class="small text-muted"
+                    th:text="${#temporals.format(s.submittedAt, 'yyyy-MM-dd HH:mm')}">date</td>
+                <td class="text-end small" th:text="${s.runtimeMs != null ? s.runtimeMs + ' ms' : '—'}">—</td>
+                <td class="text-end">
+                    <span th:replace="~{fragments/bits :: verdict(${s.verdict}, ${s.status})}"></span>
+                </td>
+            </tr>
+            <tr th:if="${page.empty}">
+                <td colspan="6" class="text-center text-muted py-4">
+                    Nothing yet. <a th:href="@{/problems}">Pick a problem</a>.
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div th:replace="~{fragments/bits :: pager(${page}, '/submissions')}"></div>
+
+</main>
+</body>
+</html>

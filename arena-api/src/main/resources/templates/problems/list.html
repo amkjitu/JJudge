@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: page(~{::title}, ~{::main}, ~{})}"
+      lang="en">
+<head><title>Problems &middot; CodeArena</title></head>
+<body>
+<main>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h4 mb-0">Problems</h1>
+        <span class="text-muted small">
+            <span th:text="${page.totalElements}">40</span> matching
+        </span>
+    </div>
+
+    <!--/* GET, so a filtered view is a shareable, bookmarkable URL. */-->
+    <form class="card card-body mb-4" method="get" th:action="@{/problems}">
+        <div class="row g-2 align-items-end">
+            <div class="col-6 col-md-3">
+                <label class="form-label small" for="search">Search</label>
+                <input class="form-control form-control-sm" id="search" name="search"
+                       th:value="${filter.search}" placeholder="title or slug">
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small" for="tag">Tag</label>
+                <select class="form-select form-select-sm" id="tag" name="tag">
+                    <option value="">Any</option>
+                    <option th:each="t : ${allTags}" th:value="${t}" th:text="${t}"
+                            th:selected="${t == filter.tag}">dp</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
+                <label class="form-label small" for="difficulty">Difficulty</label>
+                <select class="form-select form-select-sm" id="difficulty" name="difficulty">
+                    <option value="">Any</option>
+                    <option th:each="d : ${allDifficulties}" th:value="${d}" th:text="${d}"
+                            th:selected="${d == filter.difficulty}">EASY</option>
+                </select>
+            </div>
+            <div class="col-3 col-md-2">
+                <label class="form-label small" for="minRating">Min rating</label>
+                <input class="form-control form-control-sm" id="minRating" name="minRating"
+                       type="number" min="0" max="4000" th:value="${filter.minRating}">
+            </div>
+            <div class="col-3 col-md-2">
+                <label class="form-label small" for="maxRating">Max rating</label>
+                <input class="form-control form-control-sm" id="maxRating" name="maxRating"
+                       type="number" min="0" max="4000" th:value="${filter.maxRating}">
+            </div>
+            <div class="col-12 col-md-1 d-grid">
+                <button class="btn btn-sm btn-primary" type="submit">Filter</button>
+            </div>
+        </div>
+        <div class="mt-2">
+            <a class="small link-secondary" th:href="@{/problems}">Clear filters</a>
+        </div>
+    </form>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle bg-white">
+            <thead class="table-light">
+            <tr>
+                <th scope="col" style="width: 3rem"></th>
+                <th scope="col">Problem</th>
+                <th scope="col">Tags</th>
+                <th scope="col" class="text-end">Rating</th>
+                <th scope="col" class="text-end">Difficulty</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="problem : ${page.content}">
+                <td class="text-center">
+                    <span th:if="${solvedIds != null and solvedIds.contains(problem.id)}"
+                          class="text-success fw-bold" title="Solved">&check;</span>
+                </td>
+                <td>
+                    <a th:href="@{/problems/{slug}(slug=${problem.slug})}"
+                       th:text="${problem.title}" class="fw-semibold text-decoration-none">Title</a>
+                </td>
+                <td>
+                    <a th:each="t : ${problem.tags}"
+                       class="badge text-bg-light border text-decoration-none me-1"
+                       th:href="@{/problems(tag=${t})}" th:text="${t}">dp</a>
+                </td>
+                <td class="text-end" th:text="${problem.rating}">1500</td>
+                <td class="text-end">
+                    <span th:replace="~{fragments/bits :: difficulty(${problem.difficulty})}"></span>
+                </td>
+            </tr>
+            <tr th:if="${page.empty}">
+                <td colspan="5" class="text-center text-muted py-4">
+                    Nothing matches those filters.
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!--/*
+      Pagination carries the filters explicitly. Thymeleaf drops null parameters, so an
+      inactive filter simply does not appear in the URL.
+    */-->
+    <nav th:if="${page.totalPages > 1}" aria-label="Pagination">
+        <ul class="pagination pagination-sm justify-content-center">
+            <li class="page-item" th:classappend="${page.first} ? 'disabled'">
+                <a class="page-link" th:href="@{/problems(page=${page.number - 1}, size=${page.size},
+                       tag=${filter.tag}, difficulty=${filter.difficulty},
+                       minRating=${filter.minRating}, maxRating=${filter.maxRating},
+                       search=${filter.search})}">Previous</a>
+            </li>
+            <li class="page-item"
+                th:each="i : ${#numbers.sequence(0, page.totalPages - 1)}"
+                th:classappend="${i == page.number} ? 'active'">
+                <a class="page-link" th:text="${i + 1}"
+                   th:href="@{/problems(page=${i}, size=${page.size},
+                       tag=${filter.tag}, difficulty=${filter.difficulty},
+                       minRating=${filter.minRating}, maxRating=${filter.maxRating},
+                       search=${filter.search})}">1</a>
+            </li>
+            <li class="page-item" th:classappend="${page.last} ? 'disabled'">
+                <a class="page-link" th:href="@{/problems(page=${page.number + 1}, size=${page.size},
+                       tag=${filter.tag}, difficulty=${filter.difficulty},
+                       minRating=${filter.minRating}, maxRating=${filter.maxRating},
+                       search=${filter.search})}">Next</a>
+            </li>
+        </ul>
+    </nav>
+
+</main>
+</body>
+</html>
