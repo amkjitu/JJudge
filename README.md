@@ -9,11 +9,12 @@ A competitive-programming practice platform: browse problems, submit solutions, 
 asynchronously judged verdicts, climb a leaderboard — and get told *what to solve next* by a
 recommendation engine that models your per-topic proficiency.
 
-> **Status: Phase 4 of 8 complete.** Domain model, migrations, seed data, a versioned REST API
+> **Status: Phase 5 of 8 complete.** Domain model, migrations, seed data, a versioned REST API
 > with RFC 7807 errors and OpenAPI docs, JWT + OAuth2 authentication with rotating refresh
 > tokens and per-user rate limiting, and a server-rendered Thymeleaf UI with a CodeMirror
-> editor and Chart.js progress charts — all running in Docker. The build order and what each
-> phase adds is in [Roadmap](#roadmap).
+> editor and Chart.js progress charts, and the recommendation engine with a Redis-backed
+> leaderboard — all running in Docker. The build order and what each phase adds is in
+> [Roadmap](#roadmap).
 
 <!-- TODO(phase-8): hero screenshot / GIF goes here -->
 <!-- TODO(phase-8): live demo link + demo credentials -->
@@ -31,6 +32,7 @@ recommendation engine that models your per-topic proficiency.
 - [API](#api)
 - [Security](#security)
 - [Web UI](#web-ui)
+- [Redis](#redis)
 - [Testing](#testing)
 - [Project structure](#project-structure)
 - [Roadmap](#roadmap)
@@ -85,7 +87,7 @@ Four Maven modules: `arena-common` (shared enums and event contracts), `arena-ap
 | Build | Multi-module Maven, Maven Wrapper (`./mvnw` — no local Maven needed) |
 | Relational data | PostgreSQL 16, Spring Data JPA, Hibernate 6, Flyway migrations |
 | Document data | MongoDB *(Phase 7)* |
-| Cache / ranking | Redis sorted sets *(Phase 5)* |
+| Cache / ranking | Redis sorted sets for ranking, Lua token bucket for rate limiting |
 | Messaging | Apache Kafka in KRaft mode *(Phase 6)* |
 | Security | Spring Security 6, BCrypt, HS256 JWT access tokens, rotating opaque refresh tokens, OAuth2 Google |
 | Web UI | Thymeleaf, Bootstrap 5, CodeMirror, Chart.js — served as WebJars, no CDN |
@@ -125,7 +127,7 @@ Design notes worth calling out:
   Flyway schema is a startup failure, which makes every integration test a mapping test too.
 
 **MongoDB** *(Phase 7)*: `problem_statements`, `submission_sources`.
-**Redis** *(Phase 5)*: `leaderboard:global` sorted set, submission rate-limit counters.
+**Redis**: `leaderboard:global` sorted set, `ratelimit:submissions:*` token buckets.
 
 ### Seed data
 
@@ -150,24 +152,133 @@ asserts zero difference.
 
 ## The recommendation algorithm
 
-> Implemented in **Phase 5**. The design is fixed and documented here up front because it is
-> the point of the project; this section will gain the complexity table and benchmark once
-> the code lands.
+The centrepiece. Given a user, return the *N* problems they should attempt next — and be able
+to say why.
 
-Given a user, return the top *N* problems they should attempt next.
+The whole engine is **framework-free**: `RecommendationEngine`, `ProblemScorer`,
+`PrerequisiteGate` and `TagProficiency` take plain values and know nothing about Spring, JPA or
+HTTP. `RecommendationService` is the only place the algorithm and the database meet. That is
+what makes it practical to test the scoring behaviour exhaustively instead of incidentally.
 
-1. **Tag-proficiency vector** — for each tag, `proficiency = solved / (attempts + k)`. The
-   `+ k` is a Bayesian pseudo-count: it stops "1 solved out of 1" from outranking
-   "18 solved out of 20".
-2. **Candidate pool** — unsolved problems with `rating ∈ [userRating - 100, userRating + 200]`,
-   filtered in SQL so the pool is small before scoring begins.
-3. **Score** — `w₁·tagWeakness + w₂·ratingFit + w₃·recencyBoost − w₄·repetitionPenalty`,
-   where `ratingFit` peaks at a mild stretch *above* the user's current rating.
-4. **Top-N selection** — a bounded min-heap (`PriorityQueue` capped at N) giving
-   **O(M log N)**, rather than sorting the whole pool at O(M log M).
-5. **Diversity cap** — at most *c* results per tag, so the list is not five flavours of DP.
-6. **Prerequisite gate** — a topological sort over `tag_prerequisites` ensures an advanced
-   topic is never recommended before its prerequisites are established.
+### 1. Tag-proficiency vector
+
+For each topic, `proficiency = solved / (attempts + k)` with `k = 3`. The `+ k` is a Bayesian
+pseudo-count: it stops "1 solved out of 1" outranking "18 solved out of 20".
+
+Counts are carried through rather than a precomputed ratio, because **ranking and gating ask
+different questions of the same data** — see the [gate](#3-prerequisite-gate).
+
+### 2. Candidate pool
+
+Unsolved problems with `rating ∈ [userRating − 100, userRating + 200]`, filtered in SQL so the
+pool is small before any scoring happens. The band is asymmetric on purpose: growth comes from
+stretching upwards, not from revisiting easier ground.
+
+### 3. Prerequisite gate
+
+A topic is blocked when a prerequisite was **demonstrably not learned**, or when a prerequisite
+is itself blocked. Blocking propagates: fail `arrays` and `segment-tree` disappears too.
+
+**Why a topological sort.** Readiness is transitive. Answering "is this topic ready?" per topic
+means walking the ancestor chain each time — O(V·E), and awkward to terminate on a malformed
+graph. Processing topics in dependency order means every prerequisite is already decided when a
+topic is reached, so the entire readiness map falls out of **one O(V + E) pass** with no
+recursion and no repeated work. Kahn's algorithm; a cycle degrades to unordered rather than
+silently dropping topics.
+
+**Demonstrably matters.** Two conditions are required: a raw success rate below the floor,
+*and* enough attempts for that rate to mean anything. Absence of evidence is not evidence of
+absence — and getting this wrong is not a subtle mis-ranking:
+
+> The first version gated on the *smoothed* proficiency. That scores 1-solved-of-1-attempted at
+> `1/(1+3) = 0.25`, below the 0.34 floor — so a **perfect record read as a failure**. On the
+> root topic `implementation` that verdict cascaded to every descendant, and `bob` got **2**
+> suggestions instead of 10. Smoothing is right for ranking and wrong for thresholding.
+
+The gate also stands down entirely rather than returning an empty list: an empty panel is a
+worse answer than a slightly-too-hard problem.
+
+### 4. Scoring
+
+```
+score = w₁·tagWeakness + w₂·ratingFit + w₃·recency − w₄·repetitionPenalty
+        0.45            0.35           0.10         0.30
+```
+
+Every term is normalised to **[0, 1] before weighting**. That is the point of the
+normalisation: it makes the weights directly comparable, so "weakness matters more than
+recency" is expressed by `0.45 > 0.10` rather than by an accident of units.
+
+| Term | Shape | Why |
+|---|---|---|
+| `tagWeakness` | mean of `1 − proficiency` across the problem's topics | The **mean, not the minimum** — taking the weakest tag would score every multi-topic problem as maximally urgent the moment it touched one unfamiliar area |
+| `ratingFit` | Gaussian centred at `userRating + 100`, σ = 120 | Peaks *above* the user: recommending what you can already do is comfortable and useless. Gaussian rather than linear because 30 points off target is nearly as good and 400 points off is the wrong problem — one function cannot express both linearly |
+| `recency` | `0.5 ^ (ageDays / 180)` | Half-life, so an old problem is mildly less attractive rather than disqualified. Never reaches zero |
+| `repetitionPenalty` | `n / (n + 2)` | Candidates are unsolved, so attempts are failures. Saturating, so the tenth failure does not drown out every other term |
+
+All four components are returned in the API response. A recommender that cannot explain itself
+is indistinguishable from a shuffle.
+
+### 5. Top-N selection — the bounded min-heap
+
+A `PriorityQueue` of capacity *K*, ordered by score **ascending**, so its root is always the
+weakest of the best *K* seen so far. Each candidate is compared against that root in O(1) and
+inserted — O(log K) — only if it would displace it.
+
+```
+sorting the pool    O(M log M) time, O(M) extra memory
+bounded heap        O(M log K) time, O(K) extra memory
+```
+
+For the seeded catalogue of 40 problems the difference is unmeasurable. The reason to write it
+this way is that **M grows with the catalogue while K stays fixed at about thirty** — the gap
+widens exactly as it starts to matter, and the code does not need revisiting when it does.
+
+The heap is an optimisation, and an optimisation that changes the answer is a bug — so a test
+runs it against a plain full-sort reference over **100,000 random candidates** and asserts the
+two produce identical output. Ties break on problem id so the result is a total order and the
+same request always returns the same list.
+
+### 6. Diversity cap
+
+At most 2 results may share a topic, so the list is not five flavours of DP.
+
+**Why over-fetch first.** A heap of exactly *N* yields the top *N* by score, and the cap then
+removes some of them — leaving fewer than were asked for, with nothing to backfill from.
+Keeping `K = N × 3` gives the cap alternatives to promote. It is still O(M log K); the factor
+sits inside the logarithm.
+
+Selection is greedy best-first rather than optimal. Choosing the highest-scoring set satisfying
+all caps is a constrained selection problem; taking them in score order and skipping breaches
+is O(K·t), explainable in one sentence ("the best ones, spread out"), and no user could tell
+the difference. If the cap would starve the list, skipped candidates are added back in score
+order — returning eight when ten were asked for, to honour a soft preference about variety,
+would be the cap overruling the request.
+
+### Complexity
+
+With **M** candidates, **N** requested, **t** mean tags per problem, **K = N × overfetch**,
+**V** topics and **E** prerequisite edges:
+
+| Step | Cost |
+|---|---|
+| Load proficiency, DAG, solved ids, attempt counts | 4 queries, independent of M |
+| Prerequisite gate (Kahn) | O(V + E) |
+| Gate + score every candidate | O(M · t) |
+| Top-K selection | **O(M log K)** |
+| Diversify | O(K log K) |
+| **Total** | **O(M log K)** |
+
+Memory is O(K), not O(M).
+
+### Try it
+
+The three demo accounts were seeded with deliberately different histories, so comparing their
+output shows the scoring responding to input rather than sorting the catalogue:
+
+```bash
+curl -s "http://localhost:8080/api/v1/recommendations/users/bob?limit=5" | jq '.[] | {slug: .problem.slug, score, reason}'
+```
 
 ---
 
@@ -365,12 +476,54 @@ side of that trade.
 
 ---
 
+## Redis
+
+Two uses, both chosen for something Redis does that PostgreSQL does not do cheaply.
+
+### Leaderboard — a sorted set
+
+PostgreSQL remains the source of truth; Redis holds the ranking, cache-aside. The win is not
+"the query was slow" — with four users it was not:
+
+- **`ZREVRANGE`** returns the top N in O(log N + M) without touching the other rows. The SQL
+  equivalent orders the whole table on every page view.
+- **`ZREVRANK`** answers *"what position am I?"* in O(log N). In SQL that is a window function
+  over every user — the cost of finding one person's rank is the cost of ranking everybody.
+
+Redis stores only the ranking. Solve counts come from PostgreSQL for the handful of users
+actually on screen, because caching them too would mean two copies of a mutable number, free to
+disagree. Any Redis failure falls back to SQL and logs a warning: a ranking is a feature of the
+page, not a precondition for it.
+
+### Rate limiting — a token bucket in Lua
+
+The same token-bucket algorithm as the in-process limiter it replaces, because swapping where
+state lives should not change how the limiter behaves. What changes is that the limit now counts
+once for the whole deployment rather than once per JVM — an in-process limiter behind two
+replicas permits twice the configured rate.
+
+The refill-and-consume step is a **Lua script**, not a sequence of commands. Separate GET/SET
+round trips would let two concurrent requests read the same token count and both spend it, so
+the limit would leak under exactly the load it exists to control. A script is Redis's unit of
+atomicity.
+
+Time comes from `redis.call('TIME')` rather than from the application. With several replicas the
+callers' clocks disagree, and a bucket refilled against a fast clock hands out free tokens; the
+server is the one clock every replica already shares.
+
+**Fail-open on Redis outage**, deliberately. This limiter protects the judge queue from
+enthusiasm, not the application from attack — turning every submission into a 429 during a cache
+outage would convert a degraded cache into a total outage of the product's main action. A
+limiter guarding authentication or payment would warrant the opposite choice.
+
+---
+
 ## Testing
 
 | Command | What runs | Needs Docker |
 |---|---|---|
-| `./mvnw test` | unit and web-slice tests (`*Test`) — 100 tests | no |
-| `./mvnw verify` | unit **and** integration tests (`*IT`) — 214 tests | yes |
+| `./mvnw test` | unit and web-slice tests (`*Test`) — 149 tests | no |
+| `./mvnw verify` | unit **and** integration tests (`*IT`) — 282 tests | yes |
 
 Integration tests use Testcontainers against a real PostgreSQL 16 image — never H2 — so
 migrations, `CHECK` constraints, `FULL OUTER JOIN` and Postgres-specific SQL are all exercised
@@ -382,6 +535,7 @@ Three layers, each testing something the others cannot:
 | Layer | Style | What it proves |
 |---|---|---|
 | Unit | plain JUnit + Mockito | business rules — difficulty derivation, tag resolution, proficiency smoothing, LRU eviction |
+| Algorithm | plain JUnit, no Spring at all | the recommendation engine: scoring shape, gating, heap equivalence at 100k candidates |
 | Web slice | `@WebMvcTest`, mocked services | the HTTP contract — status codes, JSON shape, error envelope |
 | UI slice | `@WebMvcTest` rendering real Thymeleaf | that every page renders, forms carry a CSRF token, and output is escaped |
 | Full stack | `@SpringBootTest` + Testcontainers | the Specification SQL, entity graphs, DB constraints, the real security chain, real session semantics |
@@ -389,6 +543,27 @@ Three layers, each testing something the others cannot:
 Authorization tests are deliberately weighted towards the **negative** cases. A test proving an
 admin can create a problem says nothing about whether everyone else can too, and that second
 question is the one that matters.
+
+### A bug the tests hid, and one they caused
+
+Two failures from this project worth keeping, because neither was a typo.
+
+**The engine returned 2 suggestions instead of 10.** The prerequisite gate judged mastery using
+the *smoothed* proficiency, which scores 1-solved-of-1-attempted at 0.25 — below the 0.34 floor.
+A perfect record read as a failure, and on the root topic `implementation` that verdict cascaded
+through the entire taxonomy. The fix was recognising that ranking and gating are different
+questions: ranking wants smoothing, gating wants the raw ratio plus a minimum-evidence
+requirement. The regression test is named after the symptom.
+
+**A test-infrastructure hiccup destroyed the fixtures.** `AbstractApiIT` undoes each test's
+writes by deleting rows above an id watermark recorded in `@BeforeEach`. JUnit runs `@AfterEach`
+even when `@BeforeEach` throws — so when a Redis connection failed during setup, the watermark
+stayed at its default of zero and `DELETE ... WHERE id > 0` emptied the seeded tables that every
+other test depends on. One unrelated failure took out sixteen tests.
+
+Both fixes are small and both are the kind that only exist once you have seen the failure: the
+watermark now starts at a sentinel that cleanup refuses to act on, and it is recorded before
+anything that can fail.
 
 ### A bug the tests were hiding
 
@@ -429,6 +604,10 @@ What the suite covers:
 - a forged signature, a foreign issuer and an expired token are each rejected
 - registration never echoes the password back, in success *or* validation responses
 - a refused admin write genuinely did not happen — asserted by reading the row back
+- the bounded heap returns **exactly** what a full sort would, over 100,000 random candidates
+- the prerequisite gate stays inert for a newcomer and sharp for a user with real history
+- the diversity cap holds, and backfills rather than silently returning fewer than requested
+- Redis sorted-set ranking and the Lua token bucket, against a real Redis rather than a mock
 - every Thymeleaf page actually renders: the UI slices run the template engine and assert
   against the produced HTML, so a fragment typo fails the build rather than the demo
 - submitted source is escaped, not interpreted — `<script>` comes back as `&lt;script&gt;`
@@ -544,7 +723,7 @@ Override with `-Ddocker.api.version=…` if your engine needs something differen
 | 2 | REST API, DTOs, validation, RFC 7807 errors, OpenAPI, `JdbcTemplate` report | ✅ done |
 | 3 | Spring Security, JWT access/refresh, OAuth2 Google, rate limiting | ✅ done |
 | 4 | Thymeleaf UI: Bootstrap, CodeMirror editor, Chart.js progress charts | ✅ done |
-| 5 | Recommendation engine, Redis leaderboard | ⬜ |
+| 5 | Recommendation engine, Redis leaderboard | ✅ done |
 | 6 | Kafka pipeline, `arena-judge` worker, SSE live verdicts | ⬜ |
 | 7 | MongoDB statements/sources, `arena-ai` hints and complexity analysis | ⬜ |
 | 8 | Full compose stack, GitHub Actions, docs, screenshots | ⬜ |

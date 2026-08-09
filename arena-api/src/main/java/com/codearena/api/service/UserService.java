@@ -80,36 +80,6 @@ public class UserService {
     }
 
     /**
-     * Top players by rating, with their solve counts.
-     *
-     * <p>Two queries rather than one join: fetch the ranked page of users, then count solves
-     * for exactly those ids. Phase 5 replaces this with a Redis sorted set, at which point the
-     * ranking stops touching PostgreSQL at all - this is the correct-but-unoptimised version
-     * that the cached one will be measured against.
-     */
-    public List<LeaderboardEntryResponse> leaderboard() {
-        List<User> ranked = userRepository.findTop50ByOrderByRatingDesc();
-        if (ranked.isEmpty()) {
-            return List.of();
-        }
-
-        List<Long> ids = ranked.stream().map(User::getId).toList();
-        Map<Long, Long> solvedByUser = submissionRepository.countSolvedForUsers(ids, Verdict.AC).stream()
-                .collect(Collectors.toMap(row -> (Long) row[0], row -> (Long) row[1]));
-
-        List<LeaderboardEntryResponse> entries = new ArrayList<>(ranked.size());
-        for (int i = 0; i < ranked.size(); i++) {
-            User user = ranked.get(i);
-            entries.add(new LeaderboardEntryResponse(
-                    i + 1,
-                    user.getUsername(),
-                    user.getRating(),
-                    solvedByUser.getOrDefault(user.getId(), 0L)));
-        }
-        return entries;
-    }
-
-    /**
      * Cumulative distinct problems solved, bucketed by month.
      *
      * <p>Only the <em>first</em> accepted submission for a problem advances the curve - solving

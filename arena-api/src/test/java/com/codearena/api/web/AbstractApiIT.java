@@ -1,6 +1,7 @@
 package com.codearena.api.web;
 
 import com.codearena.api.support.PostgresTestContainer;
+import com.codearena.api.support.RedisTestContainer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,10 +48,21 @@ abstract class AbstractApiIT {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    private long submissionWatermark;
-    private long problemWatermark;
-    private long userWatermark;
-    private long refreshTokenWatermark;
+    /**
+     * Sentinel meaning "never recorded". Cleanup refuses to run against it.
+     *
+     * <p>This guard is not hypothetical. JUnit runs {@code @AfterEach} even when
+     * {@code @BeforeEach} threw, so a setup failure used to leave the watermarks at their
+     * default of zero - and {@code DELETE ... WHERE id > 0} then emptied the seeded tables that
+     * every other test in the suite depends on. One unrelated infrastructure hiccup took out
+     * sixteen tests that had nothing to do with it.
+     */
+    private static final long NOT_RECORDED = -1L;
+
+    private long submissionWatermark = NOT_RECORDED;
+    private long problemWatermark = NOT_RECORDED;
+    private long userWatermark = NOT_RECORDED;
+    private long refreshTokenWatermark = NOT_RECORDED;
 
     @BeforeEach
     void recordWatermarks() {
@@ -62,6 +74,11 @@ abstract class AbstractApiIT {
 
     @AfterEach
     void undoWrites() {
+        if (submissionWatermark == NOT_RECORDED) {
+            // Setup failed before the watermarks were taken. There is nothing this test could
+            // have written, and deleting on a guessed boundary would destroy the fixtures.
+            return;
+        }
         // Order matters: children before parents, even though the FKs cascade, because a test
         // may have added a submission against a pre-existing problem.
         jdbcTemplate.update("DELETE FROM refresh_tokens WHERE id > ?", refreshTokenWatermark);
@@ -95,6 +112,7 @@ abstract class AbstractApiIT {
     @DynamicPropertySource
     static void testProperties(DynamicPropertyRegistry registry) {
         PostgresTestContainer.registerProperties(registry);
+        RedisTestContainer.registerProperties(registry);
         registry.add("arena.jwt.secret", () -> "test-only-signing-key-0123456789abcdefghijklmnop");
         registry.add("arena.jwt.issuer", () -> "codearena-test");
         // Off by default so unrelated tests are not throttled; RateLimitApiIT turns it on.

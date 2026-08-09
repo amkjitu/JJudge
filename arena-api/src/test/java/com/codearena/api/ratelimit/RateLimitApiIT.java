@@ -1,6 +1,7 @@
 package com.codearena.api.ratelimit;
 
 import com.codearena.api.support.PostgresTestContainer;
+import com.codearena.api.support.RedisTestContainer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,6 +12,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -18,6 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -49,18 +52,26 @@ class RateLimitApiIT {
     private JdbcTemplate jdbcTemplate;
 
     /**
-     * The limiter is a singleton shared by every test in this class. Without a reset the
-     * tests become order-dependent - one test spending a user's quota silently breaks the
-     * next, which is exactly how this suite failed the first time it ran.
+     * Buckets outlive a test, so they have to be cleared between them. Without this the suite
+     * is order-dependent - one test spending a user's quota silently breaks the next, which is
+     * exactly how it failed the first time it ran.
+     *
+     * <p>Cleared through Redis rather than by casting the bean to a concrete limiter: which
+     * implementation is active depends on whether Redis is configured, and a test that only
+     * works for one of them stops testing the one that ships.
      */
     @Autowired
-    private RateLimiter rateLimiter;
+    private StringRedisTemplate redis;
 
-    private long submissionWatermark;
+    /** See {@code AbstractApiIT}: cleanup must not run on a watermark that was never taken. */
+    private static final long NOT_RECORDED = -1L;
+
+    private long submissionWatermark = NOT_RECORDED;
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
         PostgresTestContainer.registerProperties(registry);
+        RedisTestContainer.registerProperties(registry);
         registry.add("arena.jwt.secret", () -> "test-only-signing-key-0123456789abcdefghijklmnop");
         registry.add("arena.jwt.issuer", () -> "codearena-test");
         registry.add("arena.rate-limit.enabled", () -> "true");
@@ -71,13 +82,23 @@ class RateLimitApiIT {
 
     @BeforeEach
     void resetLimiterAndRecordWatermark() {
-        ((InMemoryRateLimiter) rateLimiter).reset();
+        // Watermark first, before anything that can fail. Taking it after the Redis flush meant
+        // a Redis hiccup left it at zero, and the @AfterEach below - which JUnit runs even when
+        // setup throws - deleted every submission in the shared database.
         Long value = jdbcTemplate.queryForObject("SELECT COALESCE(MAX(id), 0) FROM submissions", Long.class);
         submissionWatermark = value == null ? 0L : value;
+
+        Set<String> buckets = redis.keys("ratelimit:*");
+        if (buckets != null && !buckets.isEmpty()) {
+            redis.delete(buckets);
+        }
     }
 
     @AfterEach
     void undoWrites() {
+        if (submissionWatermark == NOT_RECORDED) {
+            return;
+        }
         jdbcTemplate.update("DELETE FROM submissions WHERE id > ?", submissionWatermark);
     }
 

@@ -1,5 +1,6 @@
 package com.codearena.api.ui;
 
+import com.codearena.api.service.LeaderboardService;
 import com.codearena.api.service.ProblemFilter;
 import com.codearena.api.service.ProblemService;
 import com.codearena.api.service.TagService;
@@ -62,6 +63,9 @@ class ProfileAndAdminUiTest {
 
     @MockBean
     private TagService tagService;
+
+    @MockBean
+    private LeaderboardService leaderboardService;
 
     private static UserProfileResponse profile() {
         return new UserProfileResponse(3L, "bob", Role.USER, 1450,
@@ -246,7 +250,7 @@ class ProfileAndAdminUiTest {
     @Test
     @DisplayName("leaderboard renders the ranked table")
     void leaderboardRenders() throws Exception {
-        when(userService.leaderboard()).thenReturn(List.of(
+        when(leaderboardService.top(50)).thenReturn(List.of(
                 new com.codearena.api.web.dto.LeaderboardEntryResponse(1, "carol", 1750, 25)));
 
         mockMvc.perform(get("/leaderboard"))

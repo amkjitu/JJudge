@@ -55,7 +55,8 @@ public class SecurityConfig {
             "/api/v1/problems", "/api/v1/problems/**",
             "/api/v1/tags", "/api/v1/tags/**",
             "/api/v1/users/*", "/api/v1/users/*/submissions",
-            "/api/v1/reports/**"
+            "/api/v1/reports/**",
+            "/api/v1/recommendations/users/*"
     };
 
     /**

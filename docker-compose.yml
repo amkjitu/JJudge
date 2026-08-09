@@ -27,6 +27,22 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    container_name: arena-redis
+    # Append-only off: everything in here is a cache rebuildable from PostgreSQL, so paying
+    # for durability would be paying to persist derived data.
+    command: [ "redis-server", "--appendonly", "no", "--save", "" ]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+    restart: unless-stopped
+
   arena-api:
     build:
       context: .
@@ -60,10 +76,15 @@ services:
       ARENA_RATE_LIMIT_ENABLED: ${ARENA_RATE_LIMIT_ENABLED:-true}
       ARENA_RATE_LIMIT_SUBMISSIONS: ${ARENA_RATE_LIMIT_SUBMISSIONS:-10}
       ARENA_RATE_LIMIT_WINDOW: ${ARENA_RATE_LIMIT_WINDOW:-1m}
+
+      ARENA_REDIS_HOST: redis
+      ARENA_REDIS_PORT: 6379
     ports:
       - "${ARENA_API_PORT:-8080}:8080"
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: [ "CMD", "wget", "--quiet", "--spider", "http://localhost:8080/actuator/health" ]

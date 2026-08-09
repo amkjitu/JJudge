@@ -1,7 +1,9 @@
 package com.codearena.api.ui;
 
 import com.codearena.api.service.ProblemFilter;
+import com.codearena.api.service.LeaderboardService;
 import com.codearena.api.service.ProblemService;
+import com.codearena.api.service.RecommendationService;
 import com.codearena.api.service.UserService;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -17,12 +19,22 @@ import org.springframework.web.bind.annotation.GetMapping;
 @Controller
 public class HomeUiController {
 
+    /** How many suggestions the dashboard panel shows. */
+    private static final int PANEL_SIZE = 4;
+
     private final ProblemService problemService;
     private final UserService userService;
+    private final LeaderboardService leaderboardService;
+    private final RecommendationService recommendationService;
 
-    public HomeUiController(ProblemService problemService, UserService userService) {
+    public HomeUiController(ProblemService problemService,
+                            UserService userService,
+                            LeaderboardService leaderboardService,
+                            RecommendationService recommendationService) {
         this.problemService = problemService;
         this.userService = userService;
+        this.leaderboardService = leaderboardService;
+        this.recommendationService = recommendationService;
     }
 
     @GetMapping("/")
@@ -31,10 +43,12 @@ public class HomeUiController {
                 ProblemFilter.none(),
                 PageRequest.of(0, 6, Sort.by("createdAt").descending())).getContent());
 
-        model.addAttribute("leaderboard", userService.leaderboard().stream().limit(5).toList());
+        model.addAttribute("leaderboard", leaderboardService.top(5));
 
         if (UiSecurity.isAuthenticated(authentication)) {
             model.addAttribute("profile", userService.getProfile(authentication.getName()));
+            model.addAttribute("recommendations",
+                    recommendationService.recommendFor(authentication.getName(), PANEL_SIZE));
         }
 
         return "index";

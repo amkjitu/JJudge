@@ -36,6 +36,19 @@ spring:
     baseline-on-migrate: false
 
   data:
+    redis:
+      host: ${ARENA_REDIS_HOST:localhost}
+      port: ${ARENA_REDIS_PORT:6379}
+      # Short, because every Redis call here has a PostgreSQL fallback and waiting seconds for a
+      # cache that is already down turns a degraded page into a hung one.
+      #
+      # Not shorter, though: Lettuce bounds *connection initialisation* by this command timeout
+      # rather than by connect-timeout, so it has to cover the handshake on a cold connection as
+      # well as a round trip on a warm one. At 500ms a perfectly healthy Redis behind Docker port
+      # forwarding fails to connect at all - and the failure surfaces as "Unable to connect",
+      # which points at the network rather than at this line.
+      timeout: ${ARENA_REDIS_TIMEOUT:2s}
+      connect-timeout: ${ARENA_REDIS_CONNECT_TIMEOUT:2s}
     web:
       pageable:
         default-page-size: 20
@@ -60,6 +73,21 @@ springdoc:
     display-request-duration: true
 
 arena:
+  recommendation:
+    # Weakness dominates on purpose: the product claims to surface what you are bad at, and the
+    # weights should make that literally true rather than merely aspirational. Every term is
+    # normalised to [0, 1] before weighting, so these numbers are directly comparable.
+    # See RecommendationProperties for what each one does.
+    weight-tag-weakness: ${ARENA_REC_W_WEAKNESS:0.45}
+    weight-rating-fit: ${ARENA_REC_W_FIT:0.35}
+    weight-recency: ${ARENA_REC_W_RECENCY:0.10}
+    weight-repetition-penalty: ${ARENA_REC_W_REPETITION:0.30}
+    # Asymmetric band: growth comes from stretching upwards, not from revisiting easier ground.
+    rating-band-below: ${ARENA_REC_BAND_BELOW:100}
+    rating-band-above: ${ARENA_REC_BAND_ABOVE:200}
+    rating-stretch: ${ARENA_REC_STRETCH:100}
+    max-per-tag: ${ARENA_REC_MAX_PER_TAG:2}
+
   jwt:
     # No default: the application must refuse to start rather than sign tokens with a key
     # that is published in this repository. .env.example carries a development value.
