@@ -130,6 +130,35 @@ class LeaderboardServiceIT {
     }
 
     @Test
+    @DisplayName("a rating change on a cold cache does not create a leaderboard of one")
+    void recordDoesNotPopulateAColdCache() {
+        // A plain ZADD would create the key here, and the single entry would then read as a
+        // populated cache - so every page view afterwards shows one player and never rebuilds.
+        // The end-to-end run that caught this displayed a leaderboard containing only the user
+        // who had just been judged.
+        assertThat(redis.hasKey(LeaderboardService.KEY)).isFalse();
+
+        leaderboardService.record("alice", 4000);
+
+        assertThat(redis.hasKey(LeaderboardService.KEY))
+                .as("a cold cache must stay cold so the next read rebuilds it in full")
+                .isFalse();
+        assertThat(leaderboardService.top(10))
+                .as("the read repopulates from PostgreSQL, which holds every user")
+                .hasSizeGreaterThan(1);
+    }
+
+    @Test
+    @DisplayName("a rating change on a warm cache is applied")
+    void recordUpdatesAWarmCache() {
+        leaderboardService.rebuild();
+
+        leaderboardService.record("alice", 4000);
+
+        assertThat(redis.opsForZSet().score(LeaderboardService.KEY, "alice")).isEqualTo(4000.0);
+    }
+
+    @Test
     @DisplayName("rebuilding twice is idempotent")
     void rebuildIsIdempotent() {
         int first = leaderboardService.rebuild();

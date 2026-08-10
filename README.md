@@ -496,6 +496,16 @@ actually on screen, because caching them too would mean two copies of a mutable 
 disagree. Any Redis failure falls back to SQL and logs a warning: a ranking is a feature of the
 page, not a precondition for it.
 
+**A rating update never populates a cold cache.** Recording a new rating with a plain `ZADD`
+creates the key when it is missing, so a cold cache becomes a warm cache holding exactly one
+player — and reads then find a non-empty set, conclude there is nothing to rebuild, and serve a
+leaderboard of one until something evicts the key. That is strictly worse than a miss, because a
+miss repairs itself. The write is skipped instead, in a
+[Lua script](arena-api/src/main/resources/scripts/leaderboard-update.lua) so that the check and
+the write cannot be separated by an eviction; the next read repopulates from PostgreSQL, which
+already holds the new rating. This one only appeared end to end, with a real verdict landing
+against a cache that had just been cleared.
+
 ### Rate limiting — a token bucket in Lua
 
 The same token-bucket algorithm as the in-process limiter it replaces, because swapping where
@@ -604,6 +614,16 @@ being updated here, the engine would quietly degrade into "sort the catalogue by
 - `user_tag_stats`, per **problem** rather than per submission — the third failed attempt at one
   problem is not a third attempt at the topic. One `INSERT ... ON CONFLICT` covers every tag of
   the problem.
+
+  The upsert proposes `GREATEST(:attemptDelta, :solvedDelta)` rather than the raw attempt delta,
+  because **PostgreSQL evaluates `CHECK` constraints on the row an `INSERT` proposes, before it
+  detects the conflict and switches to `DO UPDATE`.** Solving a problem that was already
+  attempted sends `(solved +1, attempt +0)`, and the literal proposal `(1, 0)` violates
+  `attempt_count >= solved_count` and is rejected outright — even though the update it would
+  have performed was perfectly legal. Every accepted resubmission failed this way, reporting a
+  constraint error about counts that were never going to be stored. The `DO UPDATE` branch reads
+  the parameters directly instead of `EXCLUDED`, so the widened count does not leak into rows
+  that already have real history.
 - The user's rating, on a **first solve only**, by Elo against the problem's rating: a hard
   problem is worth more than an easy one. Failures cost nothing on purpose — a practice platform
   that punishes attempting hard problems trains people to avoid them.

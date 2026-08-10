@@ -11,7 +11,6 @@ import com.codearena.common.event.VerdictAssigned;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.AfterEach;
@@ -147,10 +146,20 @@ class SubmissionPipelineIT {
 
             long submissionId = submitAs("alice", "edit-distance");
 
+            // Find *this* submission's record rather than the first one on the topic. The
+            // consumer joins a fresh group reading from the earliest offset, so it replays every
+            // submission the other tests in this class published - and taking the head of the
+            // batch asserts on whichever test happened to run first, which is a detail no test
+            // should depend on.
             ConsumerRecord<String, String> record = await().atMost(Duration.ofSeconds(30))
                     .until(() -> {
-                        ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(500));
-                        return records.isEmpty() ? null : records.iterator().next();
+                        for (ConsumerRecord<String, String> candidate
+                                : consumer.poll(Duration.ofMillis(500))) {
+                            if (String.valueOf(submissionId).equals(candidate.key())) {
+                                return candidate;
+                            }
+                        }
+                        return null;
                     }, r -> r != null);
 
             SubmissionCreated event = objectMapper.readValue(record.value(), SubmissionCreated.class);
@@ -243,6 +252,32 @@ class SubmissionPipelineIT {
                         .get("/api/v1/submissions/{id}/stream", submissionId)
                         .with(user("alice").roles("USER")))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("a stream opened after judging still delivers the verdict at once")
+    void streamDeliversAVerdictThatAlreadyLanded() throws Exception {
+        // Judging can finish in under two seconds, so a page that loads and then connects can
+        // easily miss the event. Before the fix the emitter sat open for its full timeout with
+        // nothing to say, and the browser only recovered via its poll fallback.
+        long submissionId = submitAs("alice", "edit-distance");
+
+        VerdictAssigned verdict = new VerdictAssigned(submissionId, null, null,
+                Verdict.AC, 42, 20, 20, null, Instant.now());
+        kafkaTemplate.send(ArenaTopics.VERDICTS, String.valueOf(submissionId), verdict).join();
+
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->
+                assertThat(jdbcTemplate.queryForObject(
+                        "SELECT status FROM submissions WHERE id = ?", String.class, submissionId))
+                        .isEqualTo(SubmissionStatus.DONE.name()));
+
+        String body = mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/v1/submissions/{id}/stream", submissionId)
+                        .with(user("alice").roles("USER")))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(body).contains("verdict").contains("AC");
     }
 
     @Test

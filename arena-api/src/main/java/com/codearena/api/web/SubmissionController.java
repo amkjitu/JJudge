@@ -7,6 +7,7 @@ import com.codearena.api.web.dto.CreateSubmissionRequest;
 import com.codearena.api.web.dto.PageResponse;
 import com.codearena.api.web.dto.SubmissionResponse;
 import com.codearena.api.web.error.ResourceNotFoundException;
+import com.codearena.common.domain.SubmissionStatus;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -94,8 +95,8 @@ public class SubmissionController {
     @Operation(summary = "Live verdict updates for one submission",
             description = """
                     A Server-Sent Events stream that emits a single `verdict` event when judging
-                    finishes, then closes. Nothing is emitted for a submission that is already
-                    judged - poll `GET /api/v1/submissions/{id}` for that.
+                    finishes, then closes. If the submission has already been judged the verdict
+                    is delivered immediately and the stream closes at once.
 
                     One-directional and low-volume, which is why this is SSE rather than a
                     WebSocket: it is plain HTTP, reconnects on its own, and needs no proxy
@@ -106,7 +107,23 @@ public class SubmissionController {
         // it - otherwise a typo in the id would leave the browser waiting on a stream that can
         // never produce anything.
         submissionService.getById(id);
-        return submissionStream.subscribe(id);
+
+        SseEmitter emitter = submissionStream.subscribe(id);
+
+        // Re-read *after* registering, and in this order deliberately. Judging can finish in
+        // under two seconds, so a page that loads and then connects can easily miss the verdict
+        // entirely - the emitter would sit open for its full timeout with nothing to say.
+        //
+        // Registering first means a verdict arriving during this read reaches the emitter through
+        // the listener; reading second means one that arrived before registration is delivered
+        // here. Publishing twice is harmless because publish() removes the emitters atomically,
+        // so whichever path runs first is the only one that sends.
+        SubmissionResponse current = submissionService.getById(id);
+        if (current.status() == SubmissionStatus.DONE) {
+            submissionStream.publish(current);
+        }
+
+        return emitter;
     }
 
     @GetMapping(value = "/{id}/source", produces = MediaType.TEXT_PLAIN_VALUE)

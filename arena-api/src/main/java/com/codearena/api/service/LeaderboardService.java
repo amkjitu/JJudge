@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,13 +53,16 @@ public class LeaderboardService {
     static final String KEY = "leaderboard:global";
 
     private final StringRedisTemplate redis;
+    private final RedisScript<Long> updateScript;
     private final UserRepository userRepository;
     private final SubmissionRepository submissionRepository;
 
     public LeaderboardService(StringRedisTemplate redis,
+                              RedisScript<Long> leaderboardUpdateScript,
                               UserRepository userRepository,
                               SubmissionRepository submissionRepository) {
         this.redis = redis;
+        this.updateScript = leaderboardUpdateScript;
         this.userRepository = userRepository;
         this.submissionRepository = submissionRepository;
     }
@@ -110,10 +114,19 @@ public class LeaderboardService {
     /**
      * Records a rating change. Called whenever a rating moves - which, from Phase 6, is when a
      * verdict lands.
+     *
+     * <p>Updates the cache only if it is already populated. A plain {@code ZADD} creates the key
+     * when it is missing, and a cold cache would become a warm cache containing exactly one
+     * player - after which {@link #top(int)} finds a non-empty set, decides it has nothing to
+     * rebuild, and serves a leaderboard of one. That is worse than a miss, because a miss is
+     * self-correcting and this is not: the ranking stays wrong until something evicts the key.
+     *
+     * <p>Leaving it cold means the next read repopulates from PostgreSQL, which already holds
+     * this rating - the write is redundant, not lost.
      */
     public void record(String username, int rating) {
         try {
-            redis.opsForZSet().add(KEY, username, rating);
+            redis.execute(updateScript, List.of(KEY), String.valueOf(rating), username);
         } catch (DataAccessException e) {
             // The cache will be rebuilt from PostgreSQL on the next miss, so a lost write costs
             // freshness, not correctness. Failing the caller's transaction over it would be

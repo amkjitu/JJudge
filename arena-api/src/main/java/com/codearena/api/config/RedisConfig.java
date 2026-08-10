@@ -29,4 +29,18 @@ public class RedisConfig {
         script.setResultType(List.class);
         return script;
     }
+
+    /**
+     * Writes a rating into the leaderboard only when the cache is already populated.
+     *
+     * @see com.codearena.api.service.LeaderboardService#record(String, int) for why a cold cache
+     *      must be left cold
+     */
+    @Bean
+    public RedisScript<Long> leaderboardUpdateScript() {
+        DefaultRedisScript<Long> script = new DefaultRedisScript<>();
+        script.setLocation(new ClassPathResource("scripts/leaderboard-update.lua"));
+        script.setResultType(Long.class);
+        return script;
+    }
 }
