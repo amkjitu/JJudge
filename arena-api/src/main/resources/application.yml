@@ -63,6 +63,38 @@ spring:
     serialization:
       write-dates-as-timestamps: false
 
+  kafka:
+    bootstrap-servers: ${ARENA_KAFKA_BOOTSTRAP:localhost:9092}
+
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      # A submission acknowledged by one broker and then lost to a leader failure is a user
+      # whose solution silently never gets judged.
+      acks: all
+      retries: 5
+      properties:
+        enable.idempotence: true
+
+    consumer:
+      group-id: arena-api
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      properties:
+        # Restricts polymorphic deserialisation to the shared event package - trusting arbitrary
+        # class names from a message header is a remote-code-execution primitive.
+        spring.json.trusted.packages: "com.codearena.common.event"
+        spring.json.value.default.type: com.codearena.common.event.VerdictAssigned
+        spring.json.use.type.headers: false
+
+    listener:
+      ack-mode: record
+      # The judge may create the topics first, or the API may; neither should refuse to start
+      # because the other has not booted yet.
+      missing-topics-fatal: false
+
 springdoc:
   api-docs:
     path: /v3/api-docs
@@ -73,6 +105,9 @@ springdoc:
     display-request-duration: true
 
 arena:
+  kafka:
+    verdict-consumers: ${ARENA_VERDICT_CONSUMERS:1}
+
   recommendation:
     # Weakness dominates on purpose: the product claims to surface what you are bad at, and the
     # weights should make that literally true rather than merely aspirational. Every term is

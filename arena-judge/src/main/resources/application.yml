@@ -4,12 +4,73 @@ spring:
   main:
     web-application-type: none
 
+  kafka:
+    bootstrap-servers: ${ARENA_KAFKA_BOOTSTRAP:localhost:9092}
+
+    consumer:
+      group-id: arena-judge
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      # Earliest, so a worker started after the API has already queued work picks that work up
+      # rather than ignoring everything submitted before it booted.
+      auto-offset-reset: earliest
+      # Offsets are committed by the container after the listener returns, not by a background
+      # timer that has no idea whether the work succeeded.
+      enable-auto-commit: false
+      properties:
+        # Deserialising arbitrary classes named in a message header is a remote-code-execution
+        # primitive; this restricts it to the shared event package.
+        spring.json.trusted.packages: "com.codearena.common.event"
+        # The type is fixed by the topic, so it is declared here rather than trusted from a
+        # header the producer controls.
+        spring.json.value.default.type: com.codearena.common.event.SubmissionCreated
+        spring.json.use.type.headers: false
+        # One record at a time: each one takes roughly a second of simulated judging, and a large
+        # prefetch would only sit in memory holding up the rebalance.
+        max.poll.records: 1
+        # Generous, because a slow submission must not look like a dead consumer and trigger a
+        # rebalance that hands the same work to somebody else.
+        max.poll.interval.ms: 300000
+
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      # Wait for all in-sync replicas. A verdict that reaches one broker and is then lost to a
+      # leader failure is a submission stuck on RUNNING for ever, with no error anywhere.
+      acks: all
+      retries: 5
+      properties:
+        # Exactly-once semantics per producer session: a retry after a timeout cannot append the
+        # same verdict twice.
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+
+    listener:
+      ack-mode: record
+      # Without this, a message that always fails is redelivered for ever and the partition never
+      # advances. Two retries then move on; the API's submission stays QUEUED and is visible.
+      missing-topics-fatal: false
+
+arena:
+  judge:
+    test-cases: ${ARENA_JUDGE_TEST_CASES:20}
+    worker-threads: ${ARENA_JUDGE_THREADS:4}
+    consumers: ${ARENA_JUDGE_CONSUMERS:2}
+    case-delay-millis: ${ARENA_JUDGE_CASE_DELAY_MS:40}
+
 management:
   endpoints:
     web:
       exposure:
         include: health,info
+  # No servlet container in this process, so health is exposed over JMX only; compose checks
+  # liveness with a JVM-level probe instead.
+  endpoint:
+    health:
+      probes:
+        enabled: true
 
 logging:
   level:
     com.codearena: ${ARENA_LOG_LEVEL:INFO}
+    org.apache.kafka: WARN

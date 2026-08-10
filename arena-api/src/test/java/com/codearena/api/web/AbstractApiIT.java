@@ -1,5 +1,6 @@
 package com.codearena.api.web;
 
+import com.codearena.api.support.KafkaTestContainer;
 import com.codearena.api.support.PostgresTestContainer;
 import com.codearena.api.support.RedisTestContainer;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -112,6 +113,14 @@ abstract class AbstractApiIT {
     @DynamicPropertySource
     static void testProperties(DynamicPropertyRegistry registry) {
         PostgresTestContainer.registerProperties(registry);
+        // A real broker, because submitting publishes an event after the transaction commits -
+        // without one the send fails and the endpoint returns 500. The container is a shared
+        // singleton, so this costs nothing beyond the first test class that asks for it.
+        KafkaTestContainer.registerProperties(registry);
+        // Consumers stay off, though: these tests only need to *produce*. Leaving the verdict
+        // listener running would have every context in the suite competing for the same records
+        // as SubmissionPipelineIT, which is the one test that actually asserts on them.
+        registry.add("spring.kafka.listener.auto-startup", () -> "false");
         RedisTestContainer.registerProperties(registry);
         registry.add("arena.jwt.secret", () -> "test-only-signing-key-0123456789abcdefghijklmnop");
         registry.add("arena.jwt.issuer", () -> "codearena-test");

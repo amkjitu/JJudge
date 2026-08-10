@@ -4,12 +4,14 @@ import com.codearena.api.domain.Problem;
 import com.codearena.api.domain.Submission;
 import com.codearena.api.domain.User;
 import com.codearena.api.repository.SubmissionRepository;
+import com.codearena.api.messaging.SubmissionEventPublisher;
 import com.codearena.api.repository.UserRepository;
 import com.codearena.api.web.dto.CreateSubmissionRequest;
 import com.codearena.api.web.dto.SubmissionResponse;
 import com.codearena.api.web.error.ResourceNotFoundException;
 import com.codearena.api.web.mapper.SubmissionMapper;
 import com.codearena.common.domain.SubmissionStatus;
+import com.codearena.common.event.SubmissionCreated;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -37,25 +39,28 @@ public class SubmissionService {
     private final ProblemService problemService;
     private final SubmissionSourceStore sourceStore;
     private final SubmissionMapper submissionMapper;
+    private final SubmissionEventPublisher eventPublisher;
 
     public SubmissionService(SubmissionRepository submissionRepository,
                              UserRepository userRepository,
                              ProblemService problemService,
                              SubmissionSourceStore sourceStore,
-                             SubmissionMapper submissionMapper) {
+                             SubmissionMapper submissionMapper,
+                             SubmissionEventPublisher eventPublisher) {
         this.submissionRepository = submissionRepository;
         this.userRepository = userRepository;
         this.problemService = problemService;
         this.sourceStore = sourceStore;
         this.submissionMapper = submissionMapper;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
      * Records an attempt and leaves it {@code QUEUED}.
      *
-     * <p>Nothing judges it yet - Phase 6 publishes a {@code SubmissionCreated} event here and
-     * the worker moves it to {@code RUNNING} then {@code DONE}. The status enum already models
-     * that lifecycle, so no schema change is needed when the pipeline lands.
+     * <p>Returns as soon as the row is written: judging happens asynchronously in arena-judge,
+     * so the caller waits for a database insert rather than for twenty test cases. The verdict
+     * arrives later over Kafka and reaches the browser over SSE.
      *
      * @param username the caller, resolved by {@link CurrentUserProvider} - never taken from
      *                 the request body
@@ -74,6 +79,19 @@ public class SubmissionService {
                 .build());
 
         sourceStore.store(submission.getId(), request.language(), request.sourceCode());
+
+        // Published after this transaction commits - see SubmissionEventPublisher for why
+        // sending inline would race the judge against our own commit.
+        eventPublisher.publish(new SubmissionCreated(
+                submission.getId(),
+                user.getId(),
+                problem.getId(),
+                problem.getSlug(),
+                request.language(),
+                request.sourceCode(),
+                problem.getTimeLimitMs(),
+                problem.getMemoryLimitMb(),
+                submission.getSubmittedAt()));
 
         log.info("Queued submission {} for user '{}' on problem '{}'",
                 submission.getId(), username, problem.getSlug());

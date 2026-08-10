@@ -54,6 +54,20 @@
         <chartjs.version>4.4.3</chartjs.version>
         <codemirror.version>5.65.16</codemirror.version>
 
+        <!--
+          Output directory, parameterised so a command-line build can be told to use its own.
+
+          The default is the usual `target`, which is what CI and the Dockerfiles expect. The
+          escape hatch exists because an IDE running its own compiler over the same module -
+          VS Code's Java extension, for one - writes Eclipse-compiled classes into `target` too,
+          and a background rebuild can overwrite Maven's output mid-build. The result is a class
+          file containing "Unresolved compilation problems" that fails at *runtime* with a
+          baffling ClassNotFoundException for a class sitting right there on disk.
+
+              ./mvnw -Darena.build.directory=target-cli verify
+        -->
+        <arena.build.directory>target</arena.build.directory>
+
         <mapstruct.version>1.6.3</mapstruct.version>
         <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
         <springdoc.version>2.6.0</springdoc.version>
@@ -94,6 +108,8 @@
     </dependencies>
 
     <build>
+        <directory>${project.basedir}/${arena.build.directory}</directory>
+
         <pluginManagement>
             <plugins>
                 <plugin>
@@ -122,6 +138,14 @@
                             <arg>-Amapstruct.defaultComponentModel=spring</arg>
                             <arg>-Amapstruct.unmappedTargetPolicy=ERROR</arg>
                         </compilerArgs>
+                        <!--
+                          Recompile the whole module when anything in it changes. Maven's
+                          "incremental" mode decides per file, which interacts badly with
+                          annotation processors: MapStruct needs to see the interface to
+                          regenerate its implementation, and a partial recompile can leave the
+                          two out of step. Cheap insurance on a build this size.
+                        -->
+                        <useIncrementalCompilation>false</useIncrementalCompilation>
                     </configuration>
                 </plugin>
                 <plugin>

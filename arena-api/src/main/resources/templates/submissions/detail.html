@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org"
-      th:replace="~{fragments/layout :: page(~{::title}, ~{::main}, ~{})}"
+      th:replace="~{fragments/layout :: page(~{::title}, ~{::main}, ~{::scripts})}"
       lang="en">
 <head><title th:text="'Submission #' + ${submission.id} + ' · CodeArena'">Submission</title></head>
 <body>
@@ -14,6 +14,12 @@
         </ol>
     </nav>
 
+    <!--/*
+      The data attribute is how the script learns which submission to watch. Rendering the id
+      into JavaScript instead would put a server value inside a script literal for no reason.
+    */-->
+    <div id="verdict-watch" th:attr="data-submission-id=${submission.id}"></div>
+
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
         <h1 class="h4 mb-0">
             <a th:href="@{/problems/{slug}(slug=${submission.problemSlug})}"
@@ -21,7 +27,10 @@
         </h1>
         <div>
             <span class="badge text-bg-light border" th:text="${submission.language}">JAVA</span>
-            <span th:replace="~{fragments/bits :: verdict(${submission.verdict}, ${submission.status})}"></span>
+            <span id="verdict-badge"
+                  th:class="${submission.verdict == null ? 'badge text-bg-secondary'
+                            : (submission.verdict.name() == 'AC' ? 'badge text-bg-success' : 'badge text-bg-danger')}"
+                  th:text="${submission.verdict != null ? submission.verdict : submission.status}">AC</span>
         </div>
     </div>
 
@@ -30,13 +39,19 @@
         <dd class="col-sm-4"
             th:text="${#temporals.format(submission.submittedAt, 'yyyy-MM-dd HH:mm:ss')}">date</dd>
         <dt class="col-sm-2">Runtime</dt>
-        <dd class="col-sm-4"
+        <dd class="col-sm-4" id="verdict-runtime"
             th:text="${submission.runtimeMs != null ? submission.runtimeMs + ' ms' : 'not judged yet'}">—</dd>
     </dl>
 
-    <div th:if="${submission.status.name() != 'DONE'}" class="alert alert-secondary">
-        This submission is <strong th:text="${submission.status}">QUEUED</strong>. The judge
-        worker arrives in Phase 6; until then submissions stay queued.
+    <div id="verdict-notice" th:if="${submission.status.name() != 'DONE'}"
+         class="alert alert-secondary d-flex align-items-center">
+        <div class="spinner-border spinner-border-sm me-3" role="status">
+            <span class="visually-hidden">Judging</span>
+        </div>
+        <div>
+            <strong th:text="${submission.status}">QUEUED</strong> &mdash; waiting for the judge.
+            <span class="d-block small">This updates by itself; no need to refresh.</span>
+        </div>
     </div>
 
     <h2 class="h6 text-uppercase text-muted">Source</h2>
@@ -44,5 +59,9 @@
     <pre class="bg-dark text-light p-3 rounded overflow-auto"><code th:text="${sourceCode}">code</code></pre>
 
 </main>
+
+<th:block th:fragment="scripts">
+    <script th:src="@{/js/verdict-stream.js}"></script>
+</th:block>
 </body>
 </html>

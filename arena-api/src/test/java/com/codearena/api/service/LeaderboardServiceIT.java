@@ -38,6 +38,11 @@ class LeaderboardServiceIT {
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
         PostgresTestContainer.registerProperties(registry);
+        // No broker in this context. Without disabling listener startup the @KafkaListener
+        // containers spin retrying a connection that will never succeed - seconds of log noise
+        // per test class, and a slower shutdown for no benefit. SubmissionPipelineIT is the one
+        // that actually wants a broker.
+        registry.add("spring.kafka.listener.auto-startup", () -> "false");
         RedisTestContainer.registerProperties(registry);
         registry.add("arena.jwt.secret", () -> "test-only-signing-key-0123456789abcdefghijklmnop");
         registry.add("arena.jwt.issuer", () -> "codearena-test");

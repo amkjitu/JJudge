@@ -44,6 +44,13 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
     long countByUserIdAndStatus(Long userId, SubmissionStatus status);
 
     /**
+     * How many times this user has already had this problem judged. Used to decide whether an
+     * arriving verdict represents their first attempt at the topic, which is what the tag
+     * counters are counting.
+     */
+    long countByUserIdAndProblemIdAndStatus(Long userId, Long problemId, SubmissionStatus status);
+
+    /**
      * Ids of every problem the user has ever had accepted. Returned as a Set because the
      * recommendation engine uses it purely for O(1) membership tests.
      */

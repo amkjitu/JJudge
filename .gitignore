@@ -1,5 +1,8 @@
 ### Maven ###
 target/
+# Alternate output directory (-Darena.build.directory=target-cli). Exists so a command-line
+# build can stay clear of an IDE compiling into target/ at the same time.
+target-cli/
 !.mvn/wrapper/maven-wrapper.properties
 .mvn/wrapper/maven-wrapper.jar
 pom.xml.tag

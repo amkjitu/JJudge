@@ -43,6 +43,68 @@ services:
       start_period: 5s
     restart: unless-stopped
 
+  kafka:
+    image: apache/kafka:3.8.0
+    container_name: arena-kafka
+    environment:
+      # KRaft: this one process is both broker and controller, so there is no ZooKeeper to run,
+      # configure or explain. Single-node only - a real cluster separates the roles.
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:29092
+      # Two advertised listeners because the address depends on who is asking: containers reach
+      # the broker as "kafka", the host reaches it as "localhost". Advertising only one is the
+      # classic reason a client connects, gets told to talk to an unreachable host, and hangs.
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      # Everything below is a single-broker necessity: the defaults assume three replicas and
+      # would leave the internal topics permanently under-replicated.
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      CLUSTER_ID: codearena-local-cluster
+    ports:
+      - "${KAFKA_PORT:-29092}:29092"
+    healthcheck:
+      # Asking the broker to list topics proves it is actually serving the API, which a port
+      # check does not - the socket opens well before the broker is ready.
+      test: [ "CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1" ]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+      start_period: 20s
+    restart: unless-stopped
+
+  arena-judge:
+    build:
+      context: .
+      dockerfile: arena-judge/Dockerfile
+    image: codearena/arena-judge:${ARENA_VERSION:-dev}
+    container_name: arena-judge
+    environment:
+      ARENA_KAFKA_BOOTSTRAP: kafka:9092
+      ARENA_JUDGE_TEST_CASES: ${ARENA_JUDGE_TEST_CASES:-20}
+      ARENA_JUDGE_THREADS: ${ARENA_JUDGE_THREADS:-4}
+      ARENA_JUDGE_CONSUMERS: ${ARENA_JUDGE_CONSUMERS:-2}
+      ARENA_JUDGE_CASE_DELAY_MS: ${ARENA_JUDGE_CASE_DELAY_MS:-40}
+      ARENA_LOG_LEVEL: ${ARENA_LOG_LEVEL:-INFO}
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      # No HTTP server in this process, so liveness is "the JVM is still there" rather than a
+      # curl against a port it never opens.
+      test: [ "CMD-SHELL", "pgrep -f java > /dev/null || exit 1" ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
   arena-api:
     build:
       context: .
@@ -79,12 +141,17 @@ services:
 
       ARENA_REDIS_HOST: redis
       ARENA_REDIS_PORT: 6379
+
+      ARENA_KAFKA_BOOTSTRAP: kafka:9092
+      ARENA_VERDICT_CONSUMERS: ${ARENA_VERDICT_CONSUMERS:-1}
     ports:
       - "${ARENA_API_PORT:-8080}:8080"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     healthcheck:
       test: [ "CMD", "wget", "--quiet", "--spider", "http://localhost:8080/actuator/health" ]

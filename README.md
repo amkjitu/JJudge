@@ -9,12 +9,12 @@ A competitive-programming practice platform: browse problems, submit solutions, 
 asynchronously judged verdicts, climb a leaderboard — and get told *what to solve next* by a
 recommendation engine that models your per-topic proficiency.
 
-> **Status: Phase 5 of 8 complete.** Domain model, migrations, seed data, a versioned REST API
+> **Status: Phase 6 of 8 complete.** Domain model, migrations, seed data, a versioned REST API
 > with RFC 7807 errors and OpenAPI docs, JWT + OAuth2 authentication with rotating refresh
 > tokens and per-user rate limiting, and a server-rendered Thymeleaf UI with a CodeMirror
-> editor and Chart.js progress charts, and the recommendation engine with a Redis-backed
-> leaderboard — all running in Docker. The build order and what each phase adds is in
-> [Roadmap](#roadmap).
+> editor and Chart.js progress charts, the recommendation engine with a Redis-backed
+> leaderboard, and an async judging pipeline over Kafka with live verdicts over SSE — all
+> running in Docker. The build order and what each phase adds is in [Roadmap](#roadmap).
 
 <!-- TODO(phase-8): hero screenshot / GIF goes here -->
 <!-- TODO(phase-8): live demo link + demo credentials -->
@@ -33,6 +33,7 @@ recommendation engine that models your per-topic proficiency.
 - [Security](#security)
 - [Web UI](#web-ui)
 - [Redis](#redis)
+- [The judging pipeline](#the-judging-pipeline)
 - [Testing](#testing)
 - [Project structure](#project-structure)
 - [Roadmap](#roadmap)
@@ -88,7 +89,7 @@ Four Maven modules: `arena-common` (shared enums and event contracts), `arena-ap
 | Relational data | PostgreSQL 16, Spring Data JPA, Hibernate 6, Flyway migrations |
 | Document data | MongoDB *(Phase 7)* |
 | Cache / ranking | Redis sorted sets for ranking, Lua token bucket for rate limiting |
-| Messaging | Apache Kafka in KRaft mode *(Phase 6)* |
+| Messaging | Apache Kafka in KRaft mode, JSON events, at-least-once with idempotent consumers |
 | Security | Spring Security 6, BCrypt, HS256 JWT access tokens, rotating opaque refresh tokens, OAuth2 Google |
 | Web UI | Thymeleaf, Bootstrap 5, CodeMirror, Chart.js — served as WebJars, no CDN |
 | AI | Spring AI with Ollama, provider-configurable to OpenAI *(Phase 7)* |
@@ -518,12 +519,104 @@ limiter guarding authentication or payment would warrant the opposite choice.
 
 ---
 
+## The judging pipeline
+
+Submitting returns in milliseconds; judging happens somewhere else entirely.
+
+```
+POST /api/v1/submissions
+        │ insert row (QUEUED), commit
+        ▼
+  arena.submissions ──────────────▶ arena-judge
+   (keyed by submission id)          20 test cases on a thread pool
+        ▲                                    │
+        │                                    ▼
+   arena-api ◀────────────────────── arena.verdicts
+   apply verdict, update tag stats,
+   award Elo, push SSE ──────────▶ browser updates in place
+```
+
+### Ordering and delivery
+
+Both topics are **keyed by submission id**. Every message about one submission therefore lands
+on one partition and is processed in order by a single consumer — without that, two workers
+could judge the same submission concurrently and race to write conflicting verdicts.
+
+Delivery is **at-least-once**: the listener processes a record to completion before returning,
+so the offset is committed after the work is durable rather than before it starts. The cost of
+that choice is duplicates, which is why `VerdictService.apply` is idempotent — a redelivered
+message would otherwise award the rating and the tag counters twice. There is a test for exactly
+that, because it is the failure that would never show up in manual testing.
+
+### Three ordering hazards, and what was done about them
+
+- **Publishing inside the transaction would race the commit.** The judge is fast enough to
+  consume, judge and publish a verdict before the API's own transaction commits — so the verdict
+  listener would look for a row that does not exist yet and drop it, leaving the submission
+  QUEUED for ever. The event is published on `afterCommit` instead. The residual risk is the
+  other direction (committed but not published); the honest fix is a transactional outbox, which
+  is noted in the code rather than pretended away.
+- **A thread pool per record would break at-least-once.** Handing each record to an executor and
+  returning immediately lets Kafka commit the offset while the work is still running, so a crash
+  mid-judge loses the submission silently. Parallelism across submissions comes from consuming
+  multiple partitions; the thread pool inside the judge overlaps the *test cases* of one
+  submission, which is independent work with no delivery guarantee riding on it.
+- **The default error handler retries for ever.** One unprocessable record and the partition
+  never advances — every submission behind it stuck, with nothing but a repeating log line.
+  Both consumers retry twice then move on, and treat a deserialization failure as immediately
+  fatal since it will never succeed.
+
+### Why the source code travels in the event
+
+The better design sends only a reference and lets the worker fetch the code from shared storage.
+There is no such storage yet — the source lives in the API's own process until Phase 7 moves it
+to MongoDB — so it travels in the payload, bounded by the 64 KiB cap the submission endpoint
+already enforces, comfortably inside Kafka's 1 MB default.
+
+### Judging is simulated, deterministically
+
+Compiling and running untrusted code needs a real sandbox — containers, seccomp, cgroups — which
+is a project in itself and not what this one demonstrates. What *is* real is everything around
+it: the queue, the worker, the ordering guarantees, the write-back, the live update.
+
+The outcome is a pure function of the submission's content: no `Random`, no clock. That is what
+lets an end-to-end test assert an exact verdict instead of retrying until it sees one, and it
+means resubmitting identical code gives the same answer — which is what anyone would expect of a
+judge. Obvious tells are checked before the hash, so `while (true)` reliably times out and an
+empty body reliably fails to compile.
+
+### Live updates over SSE
+
+One-directional, low-volume traffic: the server has something to say, the browser has nothing to
+send back. SSE is plain HTTP, reconnects by itself, and needs no proxy configuration — a duplex
+protocol would be more machinery for a smaller problem.
+
+**Known limitation, stated rather than hidden:** emitters live in one JVM's heap, so with several
+API replicas a verdict consumed by one instance cannot reach a browser connected to another. The
+page falls back to a slow poll, and the real fix is fanning verdicts out over Redis pub/sub.
+
+### What a verdict updates
+
+Applying a verdict is where the recommender's inputs are maintained. If `user_tag_stats` stopped
+being updated here, the engine would quietly degrade into "sort the catalogue by rating".
+
+- The submission's status, verdict and runtime.
+- `user_tag_stats`, per **problem** rather than per submission — the third failed attempt at one
+  problem is not a third attempt at the topic. One `INSERT ... ON CONFLICT` covers every tag of
+  the problem.
+- The user's rating, on a **first solve only**, by Elo against the problem's rating: a hard
+  problem is worth more than an easy one. Failures cost nothing on purpose — a practice platform
+  that punishes attempting hard problems trains people to avoid them.
+- The Redis leaderboard entry.
+
+---
+
 ## Testing
 
 | Command | What runs | Needs Docker |
 |---|---|---|
-| `./mvnw test` | unit and web-slice tests (`*Test`) — 149 tests | no |
-| `./mvnw verify` | unit **and** integration tests (`*IT`) — 282 tests | yes |
+| `./mvnw test` | unit and web-slice tests (`*Test`) — 170 tests | no |
+| `./mvnw verify` | unit **and** integration tests (`*IT`) — 318 tests | yes |
 
 Integration tests use Testcontainers against a real PostgreSQL 16 image — never H2 — so
 migrations, `CHECK` constraints, `FULL OUTER JOIN` and Postgres-specific SQL are all exercised
@@ -608,6 +701,11 @@ What the suite covers:
 - the prerequisite gate stays inert for a newcomer and sharp for a user with real history
 - the diversity cap holds, and backfills rather than silently returning fewer than requested
 - Redis sorted-set ranking and the Lua token bucket, against a real Redis rather than a mock
+- the pipeline in both directions against a real broker: what the API publishes is what the
+  judge expects, and a published verdict is applied to the row
+- a duplicate verdict changes nothing — the failure at-least-once delivery guarantees you
+- an orphan verdict does not stall the partition; the consumer survives and handles the next
+- judging is deterministic, so an end-to-end test can assert an exact verdict
 - every Thymeleaf page actually renders: the UI slices run the template engine and assert
   against the produced HTML, so a fragment typo fails the build rather than the demo
 - submitted source is escaped, not interpreted — `<script>` comes back as `&lt;script&gt;`
@@ -673,6 +771,20 @@ Both passed the test suite and failed the moment the flow was walked by hand:
 
 Both now have regression tests naming the symptom.
 
+### Note on the IDE and `target/`
+
+If a build fails with a `ClassNotFoundException` for a class that is plainly in `target/classes`,
+or a bean whose implementation is right there "not qualifying as an autowire candidate", check
+whether an IDE is compiling the same module. VS Code's Java extension writes Eclipse-compiled
+classes into `target/` too, and a background rebuild can overwrite Maven's output mid-build,
+leaving class files that contain `Unresolved compilation problems` and fail at *runtime*.
+
+The build takes a directory override for exactly this:
+
+```bash
+./mvnw -Darena.build.directory=target-cli clean verify
+```
+
 ### Note on Docker API versions
 
 Testcontainers reaches the daemon through docker-java, which still negotiates Docker API
@@ -724,7 +836,7 @@ Override with `-Ddocker.api.version=…` if your engine needs something differen
 | 3 | Spring Security, JWT access/refresh, OAuth2 Google, rate limiting | ✅ done |
 | 4 | Thymeleaf UI: Bootstrap, CodeMirror editor, Chart.js progress charts | ✅ done |
 | 5 | Recommendation engine, Redis leaderboard | ✅ done |
-| 6 | Kafka pipeline, `arena-judge` worker, SSE live verdicts | ⬜ |
+| 6 | Kafka pipeline, `arena-judge` worker, SSE live verdicts | ✅ done |
 | 7 | MongoDB statements/sources, `arena-ai` hints and complexity analysis | ⬜ |
 | 8 | Full compose stack, GitHub Actions, docs, screenshots | ⬜ |
 

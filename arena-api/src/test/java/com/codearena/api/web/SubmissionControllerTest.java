@@ -2,6 +2,8 @@ package com.codearena.api.web;
 
 import com.codearena.api.service.CurrentUserProvider;
 import com.codearena.api.service.SubmissionService;
+import com.codearena.api.sse.SubmissionStream;
+import com.codearena.api.sse.SubmissionStream;
 import com.codearena.api.web.dto.CreateSubmissionRequest;
 import com.codearena.api.web.dto.SubmissionResponse;
 import com.codearena.api.web.error.ResourceNotFoundException;
@@ -15,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -42,6 +45,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @WebMvcTest(SubmissionController.class)
 @AutoConfigureMockMvc(addFilters = false)
+// The real stream, not a mock: it is an in-memory registry with no collaborators, so importing
+// it lets the SSE endpoint be exercised for real rather than asserted against a stub.
+@Import(SubmissionStream.class)
 @DisplayName("/api/v1/submissions")
 class SubmissionControllerTest {
 

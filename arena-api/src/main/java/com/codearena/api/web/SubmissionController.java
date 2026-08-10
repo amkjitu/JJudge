@@ -2,6 +2,7 @@ package com.codearena.api.web;
 
 import com.codearena.api.service.CurrentUserProvider;
 import com.codearena.api.service.SubmissionService;
+import com.codearena.api.sse.SubmissionStream;
 import com.codearena.api.web.dto.CreateSubmissionRequest;
 import com.codearena.api.web.dto.PageResponse;
 import com.codearena.api.web.dto.SubmissionResponse;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
@@ -35,20 +37,26 @@ public class SubmissionController {
 
     private final SubmissionService submissionService;
     private final CurrentUserProvider currentUserProvider;
+    private final SubmissionStream submissionStream;
 
     public SubmissionController(SubmissionService submissionService,
-                                CurrentUserProvider currentUserProvider) {
+                                CurrentUserProvider currentUserProvider,
+                                SubmissionStream submissionStream) {
         this.submissionService = submissionService;
         this.currentUserProvider = currentUserProvider;
+        this.submissionStream = submissionStream;
     }
 
     @PostMapping
     @Operation(summary = "Submit a solution",
             description = """
-                    Records the attempt and returns it as QUEUED. Judging is asynchronous and
-                    lands in Phase 6; until then the submission stays QUEUED and carries no
-                    verdict. The submitting user comes from the authentication context, never
-                    from the request body.
+                    Records the attempt and returns immediately as QUEUED - the response waits
+                    for a database insert, not for judging. The submission is published to Kafka
+                    and evaluated by arena-judge; the verdict arrives over
+                    `GET /api/v1/submissions/{id}/stream`.
+
+                    The submitting user comes from the authentication context, never from the
+                    request body.
                     """)
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Submission accepted and queued"),
@@ -80,6 +88,25 @@ public class SubmissionController {
     @Operation(summary = "Get one submission")
     public SubmissionResponse get(@PathVariable Long id) {
         return submissionService.getById(id);
+    }
+
+    @GetMapping(value = "/{id}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @Operation(summary = "Live verdict updates for one submission",
+            description = """
+                    A Server-Sent Events stream that emits a single `verdict` event when judging
+                    finishes, then closes. Nothing is emitted for a submission that is already
+                    judged - poll `GET /api/v1/submissions/{id}` for that.
+
+                    One-directional and low-volume, which is why this is SSE rather than a
+                    WebSocket: it is plain HTTP, reconnects on its own, and needs no proxy
+                    configuration.
+                    """)
+    public SseEmitter stream(@PathVariable Long id) {
+        // Confirms the submission exists (and 404s if not) before holding a connection open for
+        // it - otherwise a typo in the id would leave the browser waiting on a stream that can
+        // never produce anything.
+        submissionService.getById(id);
+        return submissionStream.subscribe(id);
     }
 
     @GetMapping(value = "/{id}/source", produces = MediaType.TEXT_PLAIN_VALUE)
