@@ -1,0 +1,66 @@
+# TLS termination and reverse proxy for the public deployment.
+#
+# Caddy obtains and renews a Let's Encrypt certificate by itself as long as {$ARENA_DOMAIN}
+# resolves to this machine and ports 80 and 443 are reachable. No certbot, no renewal cron, no
+# certificate quietly expiring after ninety days.
+{
+	email {$ARENA_TLS_EMAIL}
+
+	# Uncomment while testing DNS or firewall rules. Let's Encrypt rate-limits failed issuance
+	# for a domain (5 per hour), and hitting that turns a ten-minute problem into an hour of
+	# waiting. The staging CA issues untrusted certificates but has no meaningful limits.
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+# Container-local health endpoint, on a port that is never published. Compose's healthcheck
+# needs something to ask, and it cannot use the public site: that block is matched by hostname,
+# and /actuator/* is deliberately blocked below.
+:8081 {
+	respond /healthz "ok" 200
+	respond 404
+}
+
+{$ARENA_DOMAIN} {
+	encode gzip zstd
+
+	# Server-Sent Events must not be buffered: the whole point is that a verdict reaches the
+	# browser the moment it lands, and a proxy that accumulates the response defeats it silently -
+	# the page still works, via the slow poll fallback, so nobody notices it broke.
+	@sse path /submissions/*/stream
+	reverse_proxy @sse arena-api:8080 {
+		flush_interval -1
+	}
+
+	reverse_proxy arena-api:8080 {
+		header_up X-Real-IP {remote_host}
+	}
+
+	header {
+		# HSTS. Deliberately without preload: preloading is effectively irreversible, and this is
+		# a demo that may not keep its domain.
+		Strict-Transport-Security "max-age=31536000"
+
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+
+		# The application serves its own JavaScript and CSS from WebJars - no CDN anywhere - so a
+		# strict policy costs nothing. 'unsafe-inline' for styles is what CodeMirror and Bootstrap
+		# need; scripts do not get it.
+		Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+
+		# Caddy advertises itself by default; there is no reason to tell a scanner what to target.
+		-Server
+	}
+
+	# Actuator beyond health is admin-only in the application, but there is no reason to let the
+	# internet reach it at all - defence that does not depend on the application getting its own
+	# authorisation right.
+	@actuator path /actuator/*
+	respond @actuator 404
+
+	log {
+		output stdout
+		format console
+	}
+}

@@ -47,7 +47,7 @@ import java.nio.charset.StandardCharsets;
  * flow loses its CSRF protection.
  */
 @Configuration
-@EnableConfigurationProperties(JwtProperties.class)
+@EnableConfigurationProperties({JwtProperties.class, SecurityHardeningProperties.class})
 @EnableMethodSecurity
 public class SecurityConfig {
 

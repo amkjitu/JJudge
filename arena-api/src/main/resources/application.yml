@@ -158,6 +158,15 @@ arena:
     # Must be true anywhere served over TLS.
     secure-cookies: ${ARENA_SECURE_COOKIES:false}
 
+    # PERMIT leaves the seeded demo accounts exactly as migration V3 created them, which is what
+    # you want on a laptop. LOCKED rotates the admin password and refuses to start without one -
+    # see SeededAccountGuard for why that is fatal rather than a warning.
+    seeded-accounts: ${ARENA_SECURITY_SEEDED_ACCOUNTS:PERMIT}
+    admin-password: ${ARENA_ADMIN_PASSWORD:}
+    # Visitors to a public demo need somebody to sign in as, so the demo users stay usable by
+    # default even when the admin account is locked down.
+    lock-demo-users: ${ARENA_LOCK_DEMO_USERS:false}
+
   oauth2:
     success-redirect: ${ARENA_OAUTH2_SUCCESS_REDIRECT:/}
     google:

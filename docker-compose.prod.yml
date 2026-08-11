@@ -1,0 +1,139 @@
+# Production overlay. Never used on its own:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# What it changes about the base file, and why each one matters once the machine has a public
+# IP rather than being your laptop:
+#
+#   1. No published database ports. The base file maps Postgres, Mongo, Redis and Kafka to the
+#      host so you can attach a client during development. On a public VM that is four unauthenticated
+#      services on the internet - Redis and Kafka have no password at all here. `ports` cannot be
+#      removed by an overlay, only overridden, so each is rebound to 127.0.0.1: reachable from the
+#      box itself for a psql session over SSH, reachable from nowhere else.
+#   2. Only Caddy is exposed, on 80 and 443. arena-api no longer publishes 8080 directly.
+#   3. Memory limits. One JVM deciding to use everything should not take the machine down with it.
+#   4. The seeded admin password is rotated at startup, and the app refuses to boot without one.
+#   5. Secure cookies, because everything is behind TLS.
+#
+# Secrets come from a .env file beside this one - see .env.production.example. Nothing here has
+# a working default: a missing secret must break the deploy, not quietly weaken it.
+
+services:
+  postgres:
+    ports: !override []
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+    logging: &default-logging
+      driver: json-file
+      options:
+        # Without this, container logs grow until the disk is full - which on a small VM is a
+        # slow, silent outage that looks like the application misbehaving.
+        max-size: "10m"
+        max-file: "3"
+
+  mongo:
+    ports: !override []
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+    logging: *default-logging
+
+  redis:
+    ports: !override []
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    logging: *default-logging
+
+  kafka:
+    ports: !override []
+    environment:
+      # The single-node defaults keep every partition on this broker, so retention is the only
+      # thing standing between a busy week and a full disk.
+      KAFKA_LOG_RETENTION_HOURS: ${KAFKA_RETENTION_HOURS:-168}
+      KAFKA_LOG_SEGMENT_BYTES: 268435456
+      # Kafka sizes its heap from the container limit only if told to; the default 1g is more
+      # than a demo needs and squeezes the JVMs that do the actual work.
+      KAFKA_HEAP_OPTS: ${KAFKA_HEAP_OPTS:--Xmx512m -Xms256m}
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+    logging: *default-logging
+
+  arena-api:
+    # No published port: Caddy is the only way in, which is what makes the TLS termination
+    # unavoidable rather than merely available.
+    ports: !override []
+    environment:
+      ARENA_SECURE_COOKIES: "true"
+      # Rotate the seeded admin password at startup, and refuse to start without a replacement.
+      # See SeededAccountGuard - the account has problem CRUD and its seeded password is printed
+      # in the README, so this is the single most important line in this file.
+      ARENA_SECURITY_SEEDED_ACCOUNTS: locked
+      ARENA_ADMIN_PASSWORD: ${ARENA_ADMIN_PASSWORD:?set ARENA_ADMIN_PASSWORD in .env}
+      # Demo users stay usable so a visitor has something to sign in as. Set true to close that.
+      ARENA_LOCK_DEMO_USERS: ${ARENA_LOCK_DEMO_USERS:-false}
+      ARENA_JWT_SECRET: ${ARENA_JWT_SECRET:?set ARENA_JWT_SECRET in .env}
+      # Tightened from the development default: a public form is a different threat model from
+      # a laptop, and judging is the expensive operation behind it.
+      ARENA_RATE_LIMIT_SUBMISSIONS: ${ARENA_RATE_LIMIT_SUBMISSIONS:-5}
+      ARENA_LOG_LEVEL: ${ARENA_LOG_LEVEL:-INFO}
+    deploy:
+      resources:
+        limits:
+          memory: 1500m
+    logging: *default-logging
+
+  arena-judge:
+    deploy:
+      resources:
+        limits:
+          memory: 768m
+    logging: *default-logging
+
+  arena-ai:
+    deploy:
+      resources:
+        limits:
+          memory: 768m
+    logging: *default-logging
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: arena-caddy
+    # Caddy obtains and renews a Let's Encrypt certificate on its own, given a domain that
+    # resolves to this machine. That is the whole reason it is here rather than nginx: no
+    # certbot, no cron job, no renewal that quietly stops working in ninety days.
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    environment:
+      ARENA_DOMAIN: ${ARENA_DOMAIN:?set ARENA_DOMAIN in .env}
+      # Let's Encrypt emails this address before a certificate expires.
+      ARENA_TLS_EMAIL: ${ARENA_TLS_EMAIL:?set ARENA_TLS_EMAIL in .env}
+    depends_on:
+      arena-api:
+        condition: service_healthy
+    healthcheck:
+      # Caddy's own health listener, not the application's: the public site block is
+      # matched by hostname and blocks /actuator/*, so neither would answer here.
+      test: [ "CMD", "wget", "--quiet", "--spider", "http://localhost:8081/healthz" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    logging: *default-logging
+
+volumes:
+  caddy-data:
+  caddy-config:

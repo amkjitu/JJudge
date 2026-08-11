@@ -322,6 +322,22 @@ Tear down, including the database volume:
 docker compose down -v
 ```
 
+### Deploying it publicly
+
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) covers running the whole stack on one always-free Oracle
+Cloud ARM machine behind HTTPS, using `docker-compose.prod.yml` and Caddy.
+
+Two things that matter before anything is reachable from outside your laptop:
+
+- **The seeded `admin` password is printed in this README** and grants problem CRUD. The
+  production overlay sets `arena.security.seeded-accounts=locked`, which rotates it at startup
+  and **refuses to start** without a replacement — a warning would scroll past in a deploy log
+  and the site would simply be open.
+- **The base compose file publishes Postgres, Mongo, Redis and Kafka to the host** for local
+  convenience. The overlay rebinds all four to `127.0.0.1`. Note the `!override` tags in it:
+  Compose *merges* list-valued keys, so without them the base file's `0.0.0.0` binding survives
+  alongside the new one and the overlay closes nothing.
+
 ### Local development
 
 No local Maven or JDK install beyond Java 17 is required — the Maven Wrapper bootstraps
