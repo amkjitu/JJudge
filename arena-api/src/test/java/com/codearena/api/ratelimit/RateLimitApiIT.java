@@ -1,6 +1,7 @@
 package com.codearena.api.ratelimit;
 
 import com.codearena.api.support.KafkaTestContainer;
+import com.codearena.api.support.MongoTestContainer;
 import com.codearena.api.support.PostgresTestContainer;
 import com.codearena.api.support.RedisTestContainer;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -81,6 +82,7 @@ class RateLimitApiIT {
         // as SubmissionPipelineIT, which is the one test that actually asserts on them.
         registry.add("spring.kafka.listener.auto-startup", () -> "false");
         RedisTestContainer.registerProperties(registry);
+        MongoTestContainer.registerProperties(registry);
         registry.add("arena.jwt.secret", () -> "test-only-signing-key-0123456789abcdefghijklmnop");
         registry.add("arena.jwt.issuer", () -> "codearena-test");
         registry.add("arena.rate-limit.enabled", () -> "true");

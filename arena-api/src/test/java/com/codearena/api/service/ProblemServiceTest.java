@@ -48,11 +48,15 @@ class ProblemServiceTest {
     @Mock
     private TagRepository tagRepository;
 
+    @Mock
+    private ProblemStatementService statementService;
+
     private ProblemService problemService;
 
     @BeforeEach
     void setUp() {
-        problemService = new ProblemService(problemRepository, tagRepository, new ProblemMapperImpl());
+        problemService = new ProblemService(problemRepository, tagRepository,
+                new ProblemMapperImpl(), statementService);
     }
 
     private static Tag tag(long id, String name) {
@@ -167,5 +171,45 @@ class ProblemServiceTest {
         assertThatThrownBy(() -> problemService.getDetail("nope"))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("nope");
+    }
+
+    @Test
+    @DisplayName("the detail view joins the Markdown statement on from MongoDB")
+    void detailCarriesTheStatement() {
+        when(problemRepository.findBySlug("some-problem")).thenReturn(Optional.of(problem()));
+        when(statementService.markdownFor("some-problem")).thenReturn(Optional.of("# Statement"));
+
+        ProblemDetailResponse detail = problemService.getDetail("some-problem");
+
+        assertThat(detail.statementMarkdown()).isEqualTo("# Statement");
+        assertThat(detail.slug()).isEqualTo("some-problem");
+    }
+
+    @Test
+    @DisplayName("a problem with no statement document is still a complete problem")
+    void detailWithoutAStatement() {
+        // The relational record is what makes a problem real. Prose is an enrichment, so its
+        // absence leaves the field null rather than failing the request - which is also what
+        // happens when MongoDB is unreachable.
+        when(problemRepository.findBySlug("some-problem")).thenReturn(Optional.of(problem()));
+        when(statementService.markdownFor("some-problem")).thenReturn(Optional.empty());
+
+        ProblemDetailResponse detail = problemService.getDetail("some-problem");
+
+        assertThat(detail.statementMarkdown()).isNull();
+        assertThat(detail.rating()).isEqualTo(1200);
+    }
+
+    private static Problem problem() {
+        return Problem.builder()
+                .id(1L)
+                .title("Some Problem")
+                .slug("some-problem")
+                .rating(1200)
+                .difficulty(Difficulty.MEDIUM)
+                .timeLimitMs(1000)
+                .memoryLimitMb(256)
+                .tags(new LinkedHashSet<>(Set.of(tag(1L, "dp"))))
+                .build();
     }
 }

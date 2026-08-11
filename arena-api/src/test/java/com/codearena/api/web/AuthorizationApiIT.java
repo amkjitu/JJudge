@@ -3,7 +3,9 @@ package com.codearena.api.web;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.List;
 import java.util.Map;
@@ -12,7 +14,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrlPattern;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -24,6 +28,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @DisplayName("Authorization")
 class AuthorizationApiIT extends AbstractApiIT {
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     private String problemBody() throws Exception {
         return objectMapper.writeValueAsString(Map.of(
@@ -58,6 +65,142 @@ class AuthorizationApiIT extends AbstractApiIT {
             mockMvc.perform(get("/actuator/health")).andExpect(status().isOk());
             mockMvc.perform(get("/v3/api-docs")).andExpect(status().isOk());
         }
+    }
+
+    @Nested
+    @DisplayName("assist endpoints require authentication")
+    class AssistEndpoints {
+
+        @Test
+        @DisplayName("anonymous hint over the API is 401")
+        void anonymousApiHint() throws Exception {
+            mockMvc.perform(get("/api/v1/assist/problems/edit-distance/hint"))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @DisplayName("anonymous fetch of the page's hint route is 401, not a login redirect")
+        void anonymousWebHint() throws Exception {
+            // The page route sits under /problems, which is otherwise public - but the pattern is
+            // /problems/*, and a single * does not cross a slash, so /problems/{slug}/hint falls
+            // through to the chain's authenticated default. That is a property of the matcher
+            // rather than an explicit rule, which is exactly why it is worth pinning down: adding
+            // /problems/** to the public list later would silently open this up.
+            //
+            // 401 rather than a 302: Spring's default entry point only sends browsers to the
+            // login form, and a request that does not ask for HTML gets a status code instead.
+            // That is the right answer here - a `fetch` cannot follow a redirect to a login page,
+            // and the script needs a code it can act on.
+            mockMvc.perform(get("/problems/edit-distance/hint"))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @DisplayName("a browser navigating to the same route is sent to the login page")
+        void anonymousWebHintInABrowser() throws Exception {
+            mockMvc.perform(get("/problems/edit-distance/hint").accept(MediaType.TEXT_HTML))
+                    .andExpect(status().is3xxRedirection())
+                    .andExpect(redirectedUrlPattern("**/login"));
+        }
+
+        @Test
+        @DisplayName("anonymous complexity analysis is 401")
+        void anonymousComplexity() throws Exception {
+            mockMvc.perform(get("/api/v1/assist/submissions/1/complexity"))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @DisplayName("complexity analysis of someone else's submission is 403")
+        void complexityOfAnotherUsersSubmission() throws Exception {
+            // The hole this closes: the endpoint originally relied on getById to reject the
+            // request, and getById does no such thing - it is a deliberately public read, because
+            // anyone may see that a submission exists and what verdict it got. The source behind
+            // it is private, and so is an analysis of it, so the check has to be at the endpoint.
+            // Authenticating the caller is not the same as authorising them for this row.
+            long id = seededSubmissionIdFor("carol");
+
+            mockMvc.perform(get("/api/v1/assist/submissions/{id}/complexity", id).with(asUser("bob")))
+                    .andExpect(status().isForbidden());
+        }
+    }
+
+    @Nested
+    @DisplayName("the submission page's live-update routes are on the session chain")
+    class LiveUpdateRoutes {
+
+        /**
+         * The bug these pin down: {@code verdict-stream.js} originally called
+         * {@code /api/v1/submissions/{id}} and its stream. That chain is stateless and
+         * bearer-only, so a browser carrying a session cookie and no token was anonymous there -
+         * the stream 401'd, the poll fallback 401'd too, and the badge never updated. Nothing
+         * failed loudly, and the existing tests could not see it: MockMvc's {@code with(user())}
+         * installs the security context directly rather than exercising the chain.
+         *
+         * <p>So these assert the routes the page actually uses, and that they are reachable the
+         * way the page reaches them.
+         */
+        @Test
+        @DisplayName("the page's status route serves JSON to its owner")
+        void statusForOwner() throws Exception {
+            long id = seededSubmissionIdFor("carol");
+
+            mockMvc.perform(get("/submissions/{id}/status", id).with(asUser("carol")))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(id))
+                    .andExpect(jsonPath("$.username").value("carol"));
+        }
+
+        @Test
+        @DisplayName("the page's stream route opens for its owner")
+        void streamForOwner() throws Exception {
+            long id = seededSubmissionIdFor("carol");
+
+            mockMvc.perform(get("/submissions/{id}/stream", id).with(asUser("carol")))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("another user cannot read either")
+        void notForOthers() throws Exception {
+            long id = seededSubmissionIdFor("carol");
+
+            mockMvc.perform(get("/submissions/{id}/status", id).with(asUser("bob")))
+                    .andExpect(status().isForbidden());
+            mockMvc.perform(get("/submissions/{id}/stream", id).with(asUser("bob")))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("anonymous callers get a status code, not a login redirect")
+        void anonymous() throws Exception {
+            mockMvc.perform(get("/submissions/1/status")).andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @DisplayName("a submission whose source was never archived still renders its page")
+        void pageRendersWithoutArchivedSource() throws Exception {
+            // Seeded history predates the archive, so its source is not in MongoDB. Insisting on
+            // source made the whole page a 404 - losing the verdict, runtime and problem, which
+            // are all still there and all still worth showing.
+            long id = seededSubmissionIdFor("carol");
+
+            mockMvc.perform(get("/submissions/{id}", id).with(asUser("carol")))
+                    .andExpect(status().isOk())
+                    .andExpect(content().string(
+                            org.hamcrest.Matchers.containsString("No source is archived")));
+        }
+    }
+
+    private long seededSubmissionIdFor(String username) {
+        Long id = jdbcTemplate.queryForObject("""
+                SELECT s.id FROM submissions s JOIN users u ON u.id = s.user_id
+                WHERE u.username = ? ORDER BY s.id LIMIT 1
+                """, Long.class, username);
+        if (id == null) {
+            throw new IllegalStateException("No seeded submission for " + username);
+        }
+        return id;
     }
 
     @Nested

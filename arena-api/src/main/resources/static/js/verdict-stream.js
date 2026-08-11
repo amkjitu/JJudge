@@ -6,6 +6,12 @@
  *
  * Progressive enhancement: the page is fully readable without this file. If SSE is unavailable
  * or the connection dies, a slow poll takes over rather than leaving the badge stale for ever.
+ *
+ * Both endpoints live under /submissions rather than /api. This page authenticates with a
+ * session cookie, and the /api chain is stateless and bearer-only - pointing these at
+ * /api/v1/submissions made every request anonymous there, so the stream and its poll fallback
+ * both returned 401 and the badge never updated in a real browser. The tests did not catch it
+ * because MockMvc injects the security context directly instead of going through the chain.
  */
 (function () {
     'use strict';
@@ -63,7 +69,7 @@
             return;
         }
         pollTimer = setInterval(function () {
-            fetch('/api/v1/submissions/' + encodeURIComponent(submissionId), {
+            fetch('/submissions/' + encodeURIComponent(submissionId) + '/status', {
                 headers: {Accept: 'application/json'}
             })
                 .then(function (response) {
@@ -81,7 +87,7 @@
         }, POLL_INTERVAL_MS);
     }
 
-    var source = new EventSource('/api/v1/submissions/' + encodeURIComponent(submissionId) + '/stream');
+    var source = new EventSource('/submissions/' + encodeURIComponent(submissionId) + '/stream');
 
     source.addEventListener('verdict', function (event) {
         try {

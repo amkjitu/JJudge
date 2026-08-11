@@ -1,9 +1,13 @@
-# Full local stack. Services are added phase by phase; right now the pipeline is
-# Postgres + arena-api. Mongo, Redis, Kafka, arena-judge, arena-ai and Ollama join in
-# their respective phases.
+# Full local stack: Postgres, Mongo, Redis, Kafka, arena-api, arena-judge and arena-ai.
 #
 #   docker compose up -d --build
 #   http://localhost:8080/actuator/health
+#
+# Ollama is deliberately not a service here. A model worth asking for a hint is several GB
+# resident, which is more than the rest of the stack put together, and the whole thing then
+# needs a machine nobody should have to own to try a demo. arena-ai talks to whatever Ollama
+# you point it at and falls back to a local heuristic analyser when there is none - see
+# ARENA_AI_* in .env.example.
 
 services:
   postgres:
@@ -25,6 +29,31 @@ services:
       timeout: 5s
       retries: 12
       start_period: 10s
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:7
+    container_name: arena-mongo
+    environment:
+      MONGO_INITDB_DATABASE: ${MONGO_DB:-codearena}
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      # `mongosh --eval` exits non-zero when the server is not accepting queries yet, which a
+      # plain TCP check would miss - the port listens well before the storage engine is ready.
+      #
+      # The generous timeout is about the client, not the server: mongosh is a Node application
+      # and its startup alone takes several seconds on a loaded machine, so the ping answers in
+      # milliseconds but the command takes ~8s to return. At the usual 5s this check fails
+      # permanently against a perfectly healthy database, and every service that depends on it
+      # refuses to start.
+      test: [ "CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok" ]
+      interval: 15s
+      timeout: 20s
+      retries: 10
+      start_period: 20s
     restart: unless-stopped
 
   redis:
@@ -77,6 +106,39 @@ services:
       timeout: 10s
       retries: 15
       start_period: 20s
+    restart: unless-stopped
+
+  arena-ai:
+    build:
+      context: .
+      dockerfile: arena-ai/Dockerfile
+    image: codearena/arena-ai:${ARENA_VERSION:-dev}
+    container_name: arena-ai
+    environment:
+      # Points at an Ollama instance if you have one. host.docker.internal reaches an Ollama
+      # running on the host; leave it unset and the service answers from static analysis and
+      # labels every answer HEURISTIC, which is a supported way to run it.
+      ARENA_OLLAMA_URL: ${ARENA_OLLAMA_URL:-http://host.docker.internal:11434}
+      ARENA_OLLAMA_MODEL: ${ARENA_OLLAMA_MODEL:-llama3.2}
+      ARENA_AI_ENABLED: ${ARENA_AI_ENABLED:-true}
+      ARENA_AI_TIMEOUT: ${ARENA_AI_TIMEOUT:-20s}
+      ARENA_LOG_LEVEL: ${ARENA_LOG_LEVEL:-INFO}
+      SERVER_PORT: 8090
+    # No published port. This service has no authentication of its own because its only client
+    # is arena-api, which authenticates the user first - so it must stay on the internal network.
+    # Publishing 8090 would hand anyone a free model endpoint.
+    expose:
+      - "8090"
+    extra_hosts:
+      # Linux does not resolve host.docker.internal by default; this makes the Ollama-on-the-host
+      # case behave the same on Linux as it does on Docker Desktop.
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: [ "CMD", "wget", "--quiet", "--spider", "http://localhost:8090/actuator/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
     restart: unless-stopped
 
   arena-judge:
@@ -142,12 +204,16 @@ services:
       ARENA_REDIS_HOST: redis
       ARENA_REDIS_PORT: 6379
 
+      ARENA_MONGO_URI: mongodb://mongo:27017/${MONGO_DB:-codearena}
+
       ARENA_KAFKA_BOOTSTRAP: kafka:9092
       ARENA_VERDICT_CONSUMERS: ${ARENA_VERDICT_CONSUMERS:-1}
     ports:
       - "${ARENA_API_PORT:-8080}:8080"
     depends_on:
       postgres:
+        condition: service_healthy
+      mongo:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -163,3 +229,4 @@ services:
 
 volumes:
   postgres-data:
+  mongo-data:

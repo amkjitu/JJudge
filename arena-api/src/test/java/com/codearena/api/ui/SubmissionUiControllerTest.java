@@ -1,6 +1,7 @@
 package com.codearena.api.ui;
 
 import com.codearena.api.service.SubmissionService;
+import com.codearena.api.sse.SubmissionStream;
 import com.codearena.api.web.dto.SubmissionResponse;
 import com.codearena.common.domain.Language;
 import com.codearena.common.domain.SubmissionStatus;
@@ -36,7 +37,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
 @WebMvcTest({SubmissionUiController.class, ErrorPageUiController.class})
-@Import(UiSliceSecurityConfig.class)
+// The real SubmissionStream: it is an in-memory emitter registry with no collaborators,
+// and the slice does not scan @Components.
+@Import({UiSliceSecurityConfig.class, SubmissionStream.class})
 @DisplayName("Submission pages")
 class SubmissionUiControllerTest {
 

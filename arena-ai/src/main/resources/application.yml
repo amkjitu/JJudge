@@ -2,14 +2,52 @@ spring:
   application:
     name: arena-ai
 
+  ai:
+    ollama:
+      # Where an Ollama instance lives, if one does. Nothing starts one - a model worth asking is
+      # several GB resident, which is more than the rest of the stack combined, so requiring one
+      # would mean the project only runs on generous hardware. Unreachable is a supported state:
+      # the service answers from static analysis and labels the answer HEURISTIC.
+      base-url: ${ARENA_OLLAMA_URL:http://localhost:11434}
+      chat:
+        options:
+          # Small enough to run on a laptop, capable enough to explain a loop nest. Override with
+          # a larger model where there is room for one.
+          model: ${ARENA_OLLAMA_MODEL:llama3.2}
+          # Low but not zero: hints should be varied enough that asking twice is not pointless,
+          # and complexity analysis should not be creative at all.
+          temperature: ${ARENA_OLLAMA_TEMPERATURE:0.3}
+      # Do not probe for the model at startup. The default pulls a missing model automatically,
+      # which turns "start the stack" into a multi-gigabyte download nobody asked for.
+      init:
+        pull-model-strategy: never
+
+arena:
+  ai:
+    # Set false to skip the model entirely and answer from static analysis alone. Useful on a
+    # machine that cannot host a model, and in tests, where a real model call would make the
+    # result depend on the weather.
+    enabled: ${ARENA_AI_ENABLED:true}
+    # A hint that arrives after the reader has given up is worth nothing, and the fallback is
+    # immediate - so this is short on purpose.
+    timeout: ${ARENA_AI_TIMEOUT:20s}
+    max-source-chars: ${ARENA_AI_MAX_SOURCE_CHARS:20000}
+
 server:
   port: ${SERVER_PORT:8090}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
 
 management:
   endpoints:
     web:
       exposure:
         include: health,info
+  endpoint:
+    health:
+      show-details: when_authorized
 
 logging:
   level:

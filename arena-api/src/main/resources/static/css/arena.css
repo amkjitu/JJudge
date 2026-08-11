@@ -34,3 +34,42 @@ pre code {
 a.badge:hover {
     filter: brightness(0.92);
 }
+
+/* ---------------------------------------------------------------------------
+   Rendered problem statements and editorials.
+
+   The HTML comes from Markdown, so the elements are whatever the author wrote
+   rather than a fixed structure with classes to hang styles on - which is why
+   these are descendant selectors on a container rather than utility classes.
+   --------------------------------------------------------------------------- */
+
+.problem-statement > :last-child {
+    margin-bottom: 0;
+}
+
+.problem-statement h2 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+/* Inline code inside prose: tinted so `a[i]` reads as code without becoming a
+   block, and allowed to wrap - constraint lines are dense with it. */
+.problem-statement code {
+    background: var(--bs-secondary-bg);
+    border-radius: 0.2rem;
+    padding: 0.1rem 0.3rem;
+    font-size: 0.875em;
+    overflow-wrap: anywhere;
+}
+
+/* Fenced blocks keep the padding but drop the inline tint, or it doubles up. */
+.problem-statement pre code {
+    background: none;
+    padding: 0;
+}
+
+.problem-statement ul {
+    padding-left: 1.25rem;
+}

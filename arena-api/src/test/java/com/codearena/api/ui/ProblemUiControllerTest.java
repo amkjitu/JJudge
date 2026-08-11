@@ -1,7 +1,11 @@
 package com.codearena.api.ui;
 
+import com.codearena.api.ai.AiClient;
+import com.codearena.api.ai.dto.HintView;
 import com.codearena.api.service.ProblemFilter;
+import com.codearena.api.service.MarkdownRenderer;
 import com.codearena.api.service.ProblemService;
+import com.codearena.api.service.ProblemStatementService;
 import com.codearena.api.service.SubmissionService;
 import com.codearena.api.service.TagService;
 import com.codearena.api.web.dto.ProblemDetailResponse;
@@ -42,6 +46,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -53,7 +58,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * would miss fails here.
  */
 @WebMvcTest(ProblemUiController.class)
-@Import(UiSliceSecurityConfig.class)
+// The real MarkdownRenderer rather than a mock: it is a pure function with no collaborators, so
+// stubbing it would only guarantee that the template's th:utext never sees real rendered HTML.
+@Import({UiSliceSecurityConfig.class, MarkdownRenderer.class})
 @DisplayName("Problem pages")
 class ProblemUiControllerTest {
 
@@ -68,6 +75,12 @@ class ProblemUiControllerTest {
 
     @MockBean
     private TagService tagService;
+
+    @MockBean
+    private ProblemStatementService statementService;
+
+    @MockBean
+    private AiClient aiClient;
 
     private static final Set<String> TAGS = new TreeSet<>(Set.of("graph", "heap", "shortest-path"));
 
@@ -186,6 +199,36 @@ class ProblemUiControllerTest {
                         .param("sourceCode", "class Main {}"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/submissions/101"));
+    }
+
+    @Test
+    @WithMockUser(username = "bob")
+    @DisplayName("a hint is returned as JSON with its level and its provenance")
+    void hintReturnsJson() throws Exception {
+        when(problemService.getDetail("dijkstra-on-a-weighted-grid")).thenReturn(detail());
+        when(aiClient.hint(anyString(), any(), any(), eq(2), any()))
+                .thenReturn(java.util.Optional.of(
+                        new HintView("What does relaxing an edge tell you?", 2, 3, "HEURISTIC")));
+
+        mockMvc.perform(get("/problems/dijkstra-on-a-weighted-grid/hint").param("level", "2"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andExpect(jsonPath("$.hint").value("What does relaxing an edge tell you?"))
+                .andExpect(jsonPath("$.level").value(2))
+                // The UI shows this, so it has to survive the hop.
+                .andExpect(jsonPath("$.source").value("HEURISTIC"));
+    }
+
+    @Test
+    @WithMockUser(username = "bob")
+    @DisplayName("an unreachable AI service is a 503, not a broken page")
+    void hintUnavailable() throws Exception {
+        when(problemService.getDetail("dijkstra-on-a-weighted-grid")).thenReturn(detail());
+        when(aiClient.hint(anyString(), any(), any(), any(Integer.class), any()))
+                .thenReturn(java.util.Optional.empty());
+
+        mockMvc.perform(get("/problems/dijkstra-on-a-weighted-grid/hint"))
+                .andExpect(status().isServiceUnavailable());
     }
 
     @Test

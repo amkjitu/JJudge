@@ -31,6 +31,22 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
+
+        <!--
+          Ollama rather than a hosted provider as the default: it needs no API key, so the
+          service starts and is exercisable on a fresh clone. The starter only supplies a
+          ChatModel; nothing here is Ollama-specific, and swapping in the OpenAI starter is a
+          dependency change plus configuration - see AiConfig.
+        -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-ollama</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

@@ -2,19 +2,20 @@
 
 [![Build](https://img.shields.io/badge/build-passing-brightgreen)](#testing)
 [![Java](https://img.shields.io/badge/Java-17-orange)](https://adoptium.net/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.5-brightgreen)](https://spring.io/projects/spring-boot)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.16-brightgreen)](https://spring.io/projects/spring-boot)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 A competitive-programming practice platform: browse problems, submit solutions, get
 asynchronously judged verdicts, climb a leaderboard — and get told *what to solve next* by a
 recommendation engine that models your per-topic proficiency.
 
-> **Status: Phase 6 of 8 complete.** Domain model, migrations, seed data, a versioned REST API
+> **Status: Phase 7 of 8 complete.** Domain model, migrations, seed data, a versioned REST API
 > with RFC 7807 errors and OpenAPI docs, JWT + OAuth2 authentication with rotating refresh
-> tokens and per-user rate limiting, and a server-rendered Thymeleaf UI with a CodeMirror
-> editor and Chart.js progress charts, the recommendation engine with a Redis-backed
-> leaderboard, and an async judging pipeline over Kafka with live verdicts over SSE — all
-> running in Docker. The build order and what each phase adds is in [Roadmap](#roadmap).
+> tokens and per-user rate limiting, a server-rendered Thymeleaf UI with a CodeMirror editor and
+> Chart.js progress charts, the recommendation engine with a Redis-backed leaderboard, an async
+> judging pipeline over Kafka with live verdicts over SSE, and MongoDB-backed problem statements
+> alongside an `arena-ai` service for hints and complexity analysis — all running in Docker.
+> The build order and what each phase adds is in [Roadmap](#roadmap).
 
 <!-- TODO(phase-8): hero screenshot / GIF goes here -->
 <!-- TODO(phase-8): live demo link + demo credentials -->
@@ -33,6 +34,8 @@ recommendation engine that models your per-topic proficiency.
 - [Security](#security)
 - [Web UI](#web-ui)
 - [Redis](#redis)
+- [MongoDB](#mongodb)
+- [arena-ai](#arena-ai)
 - [The judging pipeline](#the-judging-pipeline)
 - [Testing](#testing)
 - [Project structure](#project-structure)
@@ -84,15 +87,15 @@ Four Maven modules: `arena-common` (shared enums and event contracts), `arena-ap
 
 | Area | Choice |
 |---|---|
-| Language / runtime | Java 17, Spring Boot 3.3.5 |
+| Language / runtime | Java 17, Spring Boot 3.5.16 |
 | Build | Multi-module Maven, Maven Wrapper (`./mvnw` — no local Maven needed) |
 | Relational data | PostgreSQL 16, Spring Data JPA, Hibernate 6, Flyway migrations |
-| Document data | MongoDB *(Phase 7)* |
+| Document data | MongoDB 7 — problem statements and submission source archive |
 | Cache / ranking | Redis sorted sets for ranking, Lua token bucket for rate limiting |
 | Messaging | Apache Kafka in KRaft mode, JSON events, at-least-once with idempotent consumers |
 | Security | Spring Security 6, BCrypt, HS256 JWT access tokens, rotating opaque refresh tokens, OAuth2 Google |
 | Web UI | Thymeleaf, Bootstrap 5, CodeMirror, Chart.js — served as WebJars, no CDN |
-| AI | Spring AI with Ollama, provider-configurable to OpenAI *(Phase 7)* |
+| AI | Spring AI with Ollama, provider-configurable to OpenAI; static-analysis fallback when no model is reachable |
 | API | Versioned `/api/v1`, MapStruct DTO mapping, Bean Validation, RFC 7807 errors |
 | API docs | springdoc-openapi at `/swagger-ui.html` |
 | Testing | JUnit 5, AssertJ, Mockito, Testcontainers |
@@ -127,7 +130,7 @@ Design notes worth calling out:
 - **Hibernate runs with `ddl-auto: validate`.** Any drift between entity mappings and the
   Flyway schema is a startup failure, which makes every integration test a mapping test too.
 
-**MongoDB** *(Phase 7)*: `problem_statements`, `submission_sources`.
+**MongoDB**: `problem_statements` (Markdown statement, editorial, worked examples, keyed by slug), `submission_sources` (source code, keyed by the PostgreSQL submission id).
 **Redis**: `leaderboard:global` sorted set, `ratelimit:submissions:*` token buckets.
 
 ### Seed data
@@ -529,6 +532,126 @@ limiter guarding authentication or payment would warrant the opposite choice.
 
 ---
 
+## MongoDB
+
+Two collections, both holding data that does not want to be in a relational row.
+
+### `problem_statements`
+
+A problem has two halves with nothing in common. The relational half — id, slug, rating,
+difficulty, tags — is small, uniform, and read by every listing, filter and recommendation pass.
+The prose half is kilobytes of Markdown, read only when one problem is opened, and genuinely
+variable in shape: three worked examples or none, an editorial or not.
+
+Modelling the prose relationally means either nullable columns nobody fills or a join table per
+optional section. Splitting it keeps the hot table narrow. That — not "MongoDB is faster", which
+for this data it is not — is the argument.
+
+The slug is the `_id`: already the public identifier, already unique in PostgreSQL, and already
+the value the detail page holds.
+
+**Seeding is an upsert on every start, not a run-once migration.** MongoDB has no schema to
+version, so the useful property is not "applied exactly once" but "ends up in a known state".
+Re-running is harmless, editing a statement and restarting picks the change up, and a
+half-finished first run repairs itself. Statements the seeder does not recognise are left alone.
+
+Statements render server-side through commonmark with **`escapeHtml(true)` and
+`sanitizeUrls(true)`**. The second is the one that is easy to miss: escaping raw HTML does
+nothing about link *destinations*, which are Markdown's own syntax and go into an `href`
+verbatim — so `[click](javascript:alert(1))` survives an escaping renderer intact. The template
+uses `th:utext`, which escapes nothing, so both defences have to be in the renderer. A test
+asserts each separately; the first version of that test passed while the second hole was open.
+
+### `submission_sources`
+
+Source code is an opaque blob: never queried, filtered or joined on. In the `submissions` row it
+would bloat every read the leaderboard and recommender perform. The PostgreSQL submission id is
+the `_id`, which gives the lookup a primary-key index for free and makes writes idempotent — a
+retried store after a network blip overwrites rather than leaving a second copy.
+
+**A failed archive write does not fail the submission.** The source reaches the judge inside the
+Kafka event, so a submission whose archive write failed is still judged and still scored. Rolling
+the submission back would let a document store decide whether the platform accepts work. What is
+lost is later retrieval, which the endpoint already reports as a 404.
+
+Without MongoDB configured the application still starts, backed by a bounded in-memory LRU that
+says so at startup. The port exists so that choice is a wiring detail rather than something
+`SubmissionService` knows about.
+
+---
+
+## arena-ai
+
+Hints and complexity analysis, over Spring AI's `ChatClient`. Nothing downstream depends on
+Ollama: switching to OpenAI is a starter swap plus configuration, with no service, prompt or
+controller changes. That is the argument for taking the framework abstraction rather than
+calling an HTTP API directly — the provider is a deployment decision, not an architectural one.
+
+### It works with no model at all
+
+**No Ollama container is included, deliberately.** A model worth asking is several GB resident —
+more than the rest of the stack combined — and a project nobody can run without that is a project
+nobody runs. So the service answers from static analysis when no model is reachable, and every
+response carries a `source` of `MODEL` or `HEURISTIC`.
+
+That field is not decoration. A heuristic estimate presented as if a model had reasoned about
+your code is worse than no estimate: the reader calibrates their trust on the label, and a wrong
+label spends credibility it did not earn. The fallback is a feature, so it is stated.
+
+The model call is bounded by a timeout and falls back on expiry. `ChatClient` blocks, and a local
+model under memory pressure can block for a very long time — without the bound, a request thread
+is held hostage by a dependency the response does not actually need.
+
+### The static analyser
+
+Complexity analysis is undecidable in general; a loop's bound can depend on a runtime value. What
+*is* recognisable is the handful of shapes that account for most competitive-programming
+solutions:
+
+| Signal | Effect |
+|---|---|
+| Loop nesting depth *k* | O(n^*k*) |
+| A sort | at least O(n log n) |
+| An interval that halves (`mid = lo + (hi - lo) / 2`, `lower_bound`) | a log factor |
+| A function whose body calls its own name | recursion, bound not measured |
+| Hash container, or allocation sized by input | O(n) space; with two loop levels, O(n²) |
+
+Comments and string literals are stripped first — without that, the word `for` in a printed
+message counts as a loop, which is exactly the kind of error that makes a tool untrustworthy.
+Nesting is found by tracking brace depth, and by indentation for Python, which has no braces.
+
+**Every estimate carries its reasoning and a caveat naming the most likely way it is wrong.** The
+known-wrong cases are asserted in tests rather than ignored: a two-pointer sweep is genuinely
+linear but structurally a loop inside a loop, so it is over-estimated as quadratic and says so.
+A heuristic that quietly changes which cases it gets wrong is one nobody can rely on.
+
+### Hints are nudges, not solutions
+
+Requested by level: 1 asks how to approach the problem, 3 may name the technique. The system
+prompt forbids code and pseudocode outright, because models are obliging by default and will
+write the whole solution given the chance — quietly turning a practice platform into an answer
+key. Someone who wants the answer can open the editorial, which is on the page behind a spoiler.
+
+Without a model, hints come from a library written per *technique* rather than per problem, which
+is the right granularity: "what subproblem would let you extend a solution by one element?" is
+the right nudge for every dynamic-programming problem on the platform. A test asserts that no
+library hint contains code.
+
+### Two ways in, for one reason
+
+`arena-ai` has no authentication and its port is not published. Its only client is `arena-api`,
+which authenticates the user first; adding a second token scheme would mean two places to get
+authentication wrong for a decision already made correctly upstream.
+
+Inside `arena-api` the hint is reachable twice — `/api/v1/assist/...` for API clients and
+`/problems/{slug}/hint` for the page. That duplication is not an oversight: the two security
+chains authenticate differently, and a `fetch` from a logged-in page carries a session cookie and
+no bearer token, so it is anonymous against the stateless `/api/**` chain. The alternatives were
+weakening that chain to accept cookies or minting a token into the page for JavaScript to hold.
+A second route on the chain the browser is already authenticated against is the cheaper answer.
+
+---
+
 ## The judging pipeline
 
 Submitting returns in milliseconds; judging happens somewhere else entirely.
@@ -578,10 +701,15 @@ that, because it is the failure that would never show up in manual testing.
 
 ### Why the source code travels in the event
 
-The better design sends only a reference and lets the worker fetch the code from shared storage.
-There is no such storage yet — the source lives in the API's own process until Phase 7 moves it
-to MongoDB — so it travels in the payload, bounded by the 64 KiB cap the submission endpoint
-already enforces, comfortably inside Kafka's 1 MB default.
+The usual advice is to send a reference and let the worker fetch the code from shared storage.
+That would make arena-judge depend on MongoDB, which is a coupling worth paying for at a scale
+this does not have: bounded by the 64 KiB cap the submission endpoint already enforces, the
+payload sits comfortably inside Kafka's 1 MB default.
+
+It also removes a race. The archive write and the publish are not one atomic operation, so a
+worker fetching by reference could arrive before the document was visible — a failure that only
+shows up under load. Sending the code means the worker has everything it needs the moment the
+record lands, and the MongoDB write is purely for the archive.
 
 ### Judging is simulated, deterministically
 
@@ -831,15 +959,24 @@ Override with `-Ddocker.api.version=…` if your engine needs something differen
 ├── arena-common/          shared enums and Kafka event contracts
 ├── arena-api/             web + REST + persistence
 │   ├── src/main/java/com/codearena/api/
-│   │   ├── config/        OpenAPI, JPA auditing
+│   │   ├── ai/            HTTP client for arena-ai
+│   │   ├── config/        OpenAPI, JPA auditing, Redis scripts, store selection
 │   │   ├── domain/        JPA entities
+│   │   ├── mongo/         @Document types, Mongo repositories, statement seeder
 │   │   ├── reporting/     Spring JDBC reporting DAO
-│   │   ├── repository/    Spring Data repositories + Specifications
+│   │   ├── repository/    Spring Data JPA repositories + Specifications
 │   │   ├── service/       business logic, transaction boundaries
 │   │   └── web/           controllers, DTOs, MapStruct mappers, error handling
-│   └── src/main/resources/db/migration/   Flyway V1..V5
-├── arena-judge/           Kafka worker (Phase 6)
-├── arena-ai/              Spring AI service (Phase 7)
+│   └── src/main/resources/
+│       ├── db/migration/  Flyway V1..V6
+│       ├── mongo/         bundled problem statements
+│       └── scripts/       Lua for Redis
+├── arena-judge/           Kafka worker
+├── arena-ai/              Spring AI service
+│   └── src/main/java/com/codearena/ai/
+│       ├── complexity/    static analyser + model-backed estimate
+│       ├── hint/          hint library + model-backed hints
+│       └── web/           controllers, DTOs, error handling
 ├── docs/screenshots/      README imagery
 ├── docker-compose.yml
 └── pom.xml
@@ -857,7 +994,7 @@ Override with `-Ddocker.api.version=…` if your engine needs something differen
 | 4 | Thymeleaf UI: Bootstrap, CodeMirror editor, Chart.js progress charts | ✅ done |
 | 5 | Recommendation engine, Redis leaderboard | ✅ done |
 | 6 | Kafka pipeline, `arena-judge` worker, SSE live verdicts | ✅ done |
-| 7 | MongoDB statements/sources, `arena-ai` hints and complexity analysis | ⬜ |
+| 7 | MongoDB statements/sources, `arena-ai` hints and complexity analysis | ✅ done |
 | 8 | Full compose stack, GitHub Actions, docs, screenshots | ⬜ |
 
 ---

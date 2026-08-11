@@ -32,15 +32,54 @@
 
             <div class="card">
                 <div class="card-body">
-                    <div th:if="${problem.statementMarkdown}" th:text="${problem.statementMarkdown}">
-                        Statement.
+                    <!--/* th:utext, not th:text: the statement is already HTML by this point.
+                           MarkdownRenderer escapes any raw HTML in the source, so the only
+                           markup that reaches here is markup it generated itself. */-->
+                    <div th:if="${statementHtml}" class="problem-statement" th:utext="${statementHtml}">
+                        <p>Statement.</p>
                     </div>
-                    <div th:unless="${problem.statementMarkdown}" class="text-muted">
-                        <p class="mb-2"><em>The full statement lands in Phase 7</em>, when problem
-                            text moves into MongoDB.</p>
+
+                    <div th:if="${examples != null and !examples.isEmpty()}" class="mt-4">
+                        <h2 class="h6 text-uppercase text-muted mb-3">Examples</h2>
+                        <div th:each="ex, i : ${examples}" class="mb-3">
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <div class="small text-muted mb-1">Input</div>
+                                    <pre class="bg-body-tertiary border rounded p-2 mb-0"><code
+                                            th:text="${ex.input}">2 7</code></pre>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="small text-muted mb-1">Output</div>
+                                    <pre class="bg-body-tertiary border rounded p-2 mb-0"><code
+                                            th:text="${ex.output}">0 1</code></pre>
+                                </div>
+                            </div>
+                            <p th:if="${ex.explanation}" class="small text-muted mt-1 mb-0"
+                               th:text="${ex.explanation}">Why.</p>
+                        </div>
+                    </div>
+
+                    <div th:if="${editorialHtml}" class="mt-4">
+                        <!--/* Collapsed by default. An editorial next to the submit box would
+                               hand over the answer before anyone had a chance to want it. */-->
+                        <button class="btn btn-sm btn-outline-secondary" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#editorial"
+                                aria-expanded="false" aria-controls="editorial">
+                            Show editorial (spoiler)
+                        </button>
+                        <div class="collapse mt-3" id="editorial">
+                            <div class="border-start border-3 ps-3 problem-statement"
+                                 th:utext="${editorialHtml}">
+                                <p>Editorial.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div th:unless="${statementHtml}" class="text-muted">
+                        <p class="mb-2"><em>No statement has been written for this problem yet.</em></p>
                         <p class="mb-0 small">
-                            For now: implement the obvious interpretation of the title, read from
-                            standard input and write to standard output, within
+                            Implement the obvious interpretation of the title, reading from
+                            standard input and writing to standard output, within
                             <span th:text="${problem.timeLimitMs}">1000</span> ms and
                             <span th:text="${problem.memoryLimitMb}">256</span> MB.
                         </p>
@@ -67,6 +106,31 @@
         <div class="col-lg-7">
             <div sec:authorize="!isAuthenticated()" class="alert alert-secondary">
                 <a th:href="@{/login}">Sign in</a> to submit a solution.
+            </div>
+
+            <!--/* Hints load on demand rather than with the page. A model call can take seconds,
+                   and nobody should wait for a hint they did not ask for - most visitors want to
+                   read the problem and start typing. */-->
+            <div sec:authorize="isAuthenticated()" class="card mb-3" id="hint-card"
+                 th:attr="data-hint-url=@{/api/v1/assist/problems/{slug}/hint(slug=${problem.slug})}">
+                <div class="card-body py-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="small text-muted">Stuck? Ask for a nudge, not the answer.</span>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="hint-button">
+                            Get a hint
+                        </button>
+                    </div>
+                    <div id="hint-output" class="mt-2 d-none">
+                        <p class="mb-1" id="hint-text"></p>
+                        <div class="small text-muted">
+                            <span id="hint-level"></span>
+                            <!--/* The provenance is shown, not hidden. A reader calibrates how
+                                   much to trust a hint on whether a model reasoned about their
+                                   problem or a fixed library matched a tag. */-->
+                            &middot; <span id="hint-source"></span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <form sec:authorize="isAuthenticated()" method="post"
@@ -115,6 +179,7 @@
     <script th:src="@{/webjars/codemirror/5.65.16/mode/javascript/javascript.js}"></script>
     <script th:src="@{/webjars/codemirror/5.65.16/addon/edit/closebrackets.js}"></script>
     <script th:src="@{/js/editor.js}"></script>
+    <script th:src="@{/js/hint.js}"></script>
 </th:block>
 </body>
 </html>

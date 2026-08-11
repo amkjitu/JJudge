@@ -44,13 +44,16 @@ public class ProblemService {
     private final ProblemRepository problemRepository;
     private final TagRepository tagRepository;
     private final ProblemMapper problemMapper;
+    private final ProblemStatementService statements;
 
     public ProblemService(ProblemRepository problemRepository,
                           TagRepository tagRepository,
-                          ProblemMapper problemMapper) {
+                          ProblemMapper problemMapper,
+                          ProblemStatementService statements) {
         this.problemRepository = problemRepository;
         this.tagRepository = tagRepository;
         this.problemMapper = problemMapper;
+        this.statements = statements;
     }
 
     public Page<ProblemSummaryResponse> search(ProblemFilter filter, Pageable pageable) {
@@ -64,8 +67,20 @@ public class ProblemService {
         return problemRepository.findAll(spec, pageable).map(problemMapper::toSummary);
     }
 
+    /**
+     * The full problem view: the relational record from PostgreSQL, with the Markdown statement
+     * joined on from MongoDB.
+     *
+     * <p>The two stores are read separately and stitched here rather than being made to look
+     * like one query. That is the real cost of splitting a problem across two databases, and
+     * hiding it behind a clever abstraction would only make the second read harder to notice.
+     * It is one lookup by primary key, on the one page that needs prose.
+     */
     public ProblemDetailResponse getDetail(String slug) {
-        return problemMapper.toDetail(getBySlug(slug));
+        ProblemDetailResponse detail = problemMapper.toDetail(getBySlug(slug));
+        return statements.markdownFor(slug)
+                .map(detail::withStatement)
+                .orElse(detail);
     }
 
     /**

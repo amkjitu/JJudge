@@ -56,7 +56,12 @@
 
     <h2 class="h6 text-uppercase text-muted">Source</h2>
     <!--/* th:text, never th:utext: this is user-submitted code and must be escaped. */-->
-    <pre class="bg-dark text-light p-3 rounded overflow-auto"><code th:text="${sourceCode}">code</code></pre>
+    <pre th:if="${sourceCode}"
+         class="bg-dark text-light p-3 rounded overflow-auto"><code th:text="${sourceCode}">code</code></pre>
+    <p th:unless="${sourceCode}" class="text-muted small">
+        No source is archived for this submission. Submissions made before source archiving are
+        the usual reason; the verdict above is unaffected.
+    </p>
 
 </main>
 

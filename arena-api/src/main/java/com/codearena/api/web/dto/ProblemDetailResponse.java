@@ -30,10 +30,22 @@ public record ProblemDetailResponse(
         Instant createdAt,
 
         /**
-         * Markdown statement. Sourced from MongoDB in Phase 7; null until then, and omitted
-         * from the payload rather than serialised as an explicit null.
+         * Markdown statement, read from MongoDB. Null when a problem has no statement document
+         * yet, and omitted from the payload rather than serialised as an explicit null.
          */
-        @Schema(description = "Markdown problem statement (available from Phase 7)", nullable = true)
+        @Schema(description = "Markdown problem statement", nullable = true)
         String statementMarkdown
 ) {
+
+    /**
+     * A copy carrying the statement.
+     *
+     * <p>The mapper builds this record from the JPA entity alone, which has no idea MongoDB
+     * exists; the service adds the prose afterwards. Keeping the record immutable and copying
+     * is what lets both halves stay ignorant of each other.
+     */
+    public ProblemDetailResponse withStatement(String statementMarkdown) {
+        return new ProblemDetailResponse(id, title, slug, difficulty, rating, timeLimitMs,
+                memoryLimitMb, tags, createdAt, statementMarkdown);
+    }
 }

@@ -1,5 +1,6 @@
 package com.codearena.api.service;
 
+import com.codearena.api.support.MongoTestContainer;
 import com.codearena.api.support.PostgresTestContainer;
 import com.codearena.api.support.RedisTestContainer;
 import com.codearena.api.web.dto.LeaderboardEntryResponse;
@@ -44,6 +45,7 @@ class LeaderboardServiceIT {
         // that actually wants a broker.
         registry.add("spring.kafka.listener.auto-startup", () -> "false");
         RedisTestContainer.registerProperties(registry);
+        MongoTestContainer.registerProperties(registry);
         registry.add("arena.jwt.secret", () -> "test-only-signing-key-0123456789abcdefghijklmnop");
         registry.add("arena.jwt.issuer", () -> "codearena-test");
     }

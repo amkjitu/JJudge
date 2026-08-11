@@ -1,0 +1,152 @@
+[
+  {
+    "slug": "two-sum-revisited",
+    "statementMarkdown": "Given an array of integers `a` and a target value `t`, return the indices of the two elements that sum to `t`.\n\nExactly one such pair exists, and an element may not be paired with itself. Return the indices in increasing order.\n\n## Constraints\n\n- `2 <= n <= 200000`\n- `-10^9 <= a[i], t <= 10^9`\n\n## Input\n\nThe first line contains `n` and `t`. The second line contains `n` integers.\n\n## Output\n\nTwo space-separated 0-based indices.",
+    "editorialMarkdown": "The quadratic solution checks every pair. The linear one asks a different question: while scanning, for each `a[i]`, has `t - a[i]` already been seen?\n\nA hash map from value to index answers that in O(1), so one pass suffices. Insert *after* checking, which is what stops an element pairing with itself without a special case.\n\n**Complexity:** O(n) time, O(n) space.",
+    "examples": [
+      {
+        "input": "4 9\n2 7 11 15",
+        "output": "0 1",
+        "explanation": "a[0] + a[1] = 2 + 7 = 9."
+      },
+      {
+        "input": "3 6\n3 2 4",
+        "output": "1 2",
+        "explanation": "3 + 3 would need index 0 twice, which is not allowed; 2 + 4 works."
+      }
+    ]
+  },
+  {
+    "slug": "reverse-the-words",
+    "statementMarkdown": "Given a line of text, reverse the order of its words while leaving each word itself unchanged.\n\nWords are separated by one or more spaces. Leading and trailing spaces are ignored, and the output must contain exactly one space between words.\n\n## Constraints\n\n- The line contains at most `10^5` characters.\n- Words consist of printable non-space characters.\n\n## Input\n\nOne line of text.\n\n## Output\n\nThe words in reverse order, single-spaced.",
+    "editorialMarkdown": "Splitting on runs of whitespace, reversing the list and joining with a single space is the whole problem — the only trap is treating the separator as exactly one space, which drops empty tokens into the output.\n\nIn languages without a whitespace-collapsing split, scan for word boundaries yourself and push each word onto a stack.\n\n**Complexity:** O(n) time, O(n) space.",
+    "examples": [
+      {
+        "input": "the sky  is   blue",
+        "output": "blue is sky the",
+        "explanation": "Runs of spaces collapse to one in the output."
+      }
+    ]
+  },
+  {
+    "slug": "merge-two-sorted-lists",
+    "statementMarkdown": "Merge two sorted linked lists into one sorted list and return its head.\n\nThe result must reuse the existing nodes rather than allocating new ones.\n\n## Constraints\n\n- `0 <= n, m <= 10^5`\n- Values fit in a 32-bit signed integer.\n\n## Input\n\nThe first line contains `n` followed by `n` non-decreasing integers. The second line has the same for the second list.\n\n## Output\n\nThe merged values, space-separated.",
+    "editorialMarkdown": "Walk both lists with a pointer each, always appending the smaller head.\n\nA **dummy head** node removes the special case for the first append — without it, every step has to ask whether the result is still empty. Remember to attach the remaining tail once one list runs out; forgetting that silently truncates the answer.\n\n**Complexity:** O(n + m) time, O(1) extra space.",
+    "examples": [
+      {
+        "input": "3 1 2 4\n3 1 3 4",
+        "output": "1 1 2 3 4 4",
+        "explanation": "Ties may be broken either way; the multiset of values is what matters."
+      }
+    ]
+  },
+  {
+    "slug": "valid-parentheses-stream",
+    "statementMarkdown": "A stream of brackets arrives one character at a time, drawn from `()[]{}`.\n\nAfter each character, report whether the sequence seen so far is a *prefix of some valid bracket sequence* — that is, whether it can still be completed into a balanced string.\n\n## Constraints\n\n- The stream has at most `10^6` characters.\n\n## Input\n\nOne line containing the stream.\n\n## Output\n\nOne line of `Y`/`N`, one character per input character.",
+    "editorialMarkdown": "Keep a stack of the brackets still waiting to be closed. An opening bracket pushes; a closing bracket must match the top, or the stream is dead.\n\nThe wording matters: once the answer is `N` it stays `N` forever, because no suffix repairs a mismatch. Tracking a single `dead` flag alongside the stack is what turns this from \"validate a string\" into \"validate a stream\".\n\nNote the answer is `Y` while the stack is non-empty — a prefix need not be balanced, only completable.\n\n**Complexity:** O(n) time, O(n) space.",
+    "examples": [
+      {
+        "input": "([)]",
+        "output": "YYNN",
+        "explanation": "`([` is still completable; `([)` is not, and nothing after it can recover."
+      }
+    ]
+  },
+  {
+    "slug": "binary-search-boundaries",
+    "statementMarkdown": "Given a sorted array `a` and a series of queries `q`, report for each query the number of elements strictly less than `q` and the number less than or equal to `q`.\n\n## Constraints\n\n- `1 <= n, k <= 2 * 10^5`\n- `-10^9 <= a[i], q <= 10^9`\n- `a` is non-decreasing and may contain duplicates.\n\n## Input\n\nThe first line contains `n` and `k`. The second line contains the array. The third contains `k` queries.\n\n## Output\n\nOne line per query with the two counts.",
+    "editorialMarkdown": "This is `lower_bound` and `upper_bound`, and the point of the problem is that they differ only in a comparison.\n\nWriting the loop once with a half-open interval `[lo, hi)` and an invariant you can state out loud — *everything below `lo` satisfies the predicate, everything from `hi` up does not* — is what stops the usual off-by-one. The duplicates are there to punish a search that returns \"any matching index\".\n\n**Complexity:** O((n + k) log n) time.",
+    "examples": [
+      {
+        "input": "5 2\n1 2 2 2 5\n2 3",
+        "output": "1 4\n4 4",
+        "explanation": "One element is below 2 and four are at most 2; nothing equals 3."
+      }
+    ]
+  },
+  {
+    "slug": "longest-unique-substring",
+    "statementMarkdown": "Find the length of the longest substring of `s` containing no repeated character.\n\n## Constraints\n\n- `1 <= |s| <= 2 * 10^5`\n- `s` consists of printable ASCII.\n\n## Input\n\nOne line containing `s`.\n\n## Output\n\nA single integer.",
+    "editorialMarkdown": "A sliding window whose contents are always distinct. Extend the right edge one character at a time; on a repeat, move the left edge just past the previous occurrence.\n\nJumping the left edge directly — rather than advancing it one step at a time — is what keeps this linear, and it needs the *index* of the last occurrence, not merely a seen/unseen flag. Guard against the left edge moving backwards when the duplicate lies outside the current window.\n\n**Complexity:** O(n) time, O(min(n, alphabet)) space.",
+    "examples": [
+      {
+        "input": "abcabcbb",
+        "output": "3",
+        "explanation": "`abc`, and no longer window is repeat-free."
+      },
+      {
+        "input": "bbbbb",
+        "output": "1",
+        "explanation": "Every window of length 2 repeats."
+      }
+    ]
+  },
+  {
+    "slug": "maximum-subarray-sum",
+    "statementMarkdown": "Given an array of integers, find the largest sum obtainable from a non-empty contiguous subarray.\n\n## Constraints\n\n- `1 <= n <= 2 * 10^5`\n- `-10^9 <= a[i] <= 10^9`\n\n## Input\n\nThe first line contains `n`. The second contains `n` integers.\n\n## Output\n\nA single integer.",
+    "editorialMarkdown": "Kadane's algorithm. Let `best[i]` be the largest sum of a subarray *ending at* `i`; then `best[i] = a[i] + max(best[i-1], 0)`, and the answer is the largest `best[i]`.\n\nThe constraint that the subarray is non-empty is the whole trap: an all-negative array must return its least-negative element, so the running total must never be seeded with zero.\n\nWith `n = 2 * 10^5` and values up to `10^9` the sum exceeds a 32-bit integer — use 64-bit accumulators.\n\n**Complexity:** O(n) time, O(1) space.",
+    "examples": [
+      {
+        "input": "9\n-2 1 -3 4 -1 2 1 -5 4",
+        "output": "6",
+        "explanation": "`4 -1 2 1`."
+      },
+      {
+        "input": "3\n-5 -2 -9",
+        "output": "-2",
+        "explanation": "Non-empty, so the best available is a single element."
+      }
+    ]
+  },
+  {
+    "slug": "meeting-rooms-scheduler",
+    "statementMarkdown": "Given `n` meetings as half-open intervals `[start, end)`, determine the minimum number of rooms needed so that no two meetings overlap in a room.\n\n## Constraints\n\n- `1 <= n <= 2 * 10^5`\n- `0 <= start < end <= 10^9`\n\n## Input\n\nThe first line contains `n`. Each of the next `n` lines contains `start` and `end`.\n\n## Output\n\nA single integer.",
+    "editorialMarkdown": "The answer is the maximum number of meetings running at any instant.\n\nTwo standard framings: sort the meetings by start and keep a min-heap of end times, popping every meeting that has finished before the current one starts — the heap size is the rooms in use. Or sweep the `2n` endpoints in time order, `+1` on a start and `-1` on an end, and take the running maximum.\n\nHalf-open intervals are what make a meeting ending at `t` and another starting at `t` share a room; process ends before starts at equal timestamps.\n\n**Complexity:** O(n log n) time.",
+    "examples": [
+      {
+        "input": "3\n0 30\n5 10\n15 20",
+        "output": "2",
+        "explanation": "The long meeting overlaps both short ones, but the short ones do not overlap each other."
+      },
+      {
+        "input": "2\n5 10\n10 20",
+        "output": "1",
+        "explanation": "Half-open, so the second starts exactly as the first frees the room."
+      }
+    ]
+  },
+  {
+    "slug": "longest-increasing-subsequence",
+    "statementMarkdown": "Find the length of the longest strictly increasing subsequence of `a`.\n\nA subsequence keeps the original order but need not be contiguous.\n\n## Constraints\n\n- `1 <= n <= 2 * 10^5`\n- `-10^9 <= a[i] <= 10^9`\n\n## Input\n\nThe first line contains `n`. The second contains `n` integers.\n\n## Output\n\nA single integer.",
+    "editorialMarkdown": "The O(n^2) dynamic program — `dp[i] = 1 + max(dp[j])` over `j < i` with `a[j] < a[i]` — is the natural first answer and too slow at `n = 2 * 10^5`.\n\nThe O(n log n) method keeps a list `t` where `t[k]` is the smallest possible tail of an increasing subsequence of length `k + 1`. For each element, binary-search its position in `t` and either extend or overwrite. `t` is *not* a longest subsequence — only its length is meaningful.\n\nUse `lower_bound` for strictly increasing and `upper_bound` for non-decreasing; that single choice is the difference between the two variants.\n\n**Complexity:** O(n log n) time, O(n) space.",
+    "examples": [
+      {
+        "input": "8\n10 9 2 5 3 7 101 18",
+        "output": "4",
+        "explanation": "`2 3 7 101`."
+      },
+      {
+        "input": "4\n7 7 7 7",
+        "output": "1",
+        "explanation": "Strictly increasing, so equal elements cannot extend each other."
+      }
+    ]
+  },
+  {
+    "slug": "edit-distance",
+    "statementMarkdown": "Given strings `s` and `t`, find the minimum number of single-character insertions, deletions or substitutions that turn `s` into `t`.\n\n## Constraints\n\n- `1 <= |s|, |t| <= 2000`\n- Both consist of lowercase Latin letters.\n\n## Input\n\nTwo lines: `s`, then `t`.\n\n## Output\n\nA single integer.",
+    "editorialMarkdown": "Levenshtein distance. Let `d[i][j]` be the distance between the first `i` characters of `s` and the first `j` of `t`. If the characters match, `d[i][j] = d[i-1][j-1]`; otherwise it is one plus the best of the three edits — `d[i-1][j-1]` to substitute, `d[i-1][j]` to delete, `d[i][j-1]` to insert.\n\nThe base cases carry real meaning: turning a prefix into the empty string costs one deletion per character, so `d[i][0] = i` and `d[0][j] = j`.\n\nEach row depends only on the previous one, so two rows of `|t| + 1` integers suffice — worth doing, since the full table at 2000 x 2000 is four million cells.\n\n**Complexity:** O(|s| * |t|) time, O(min(|s|, |t|)) space.",
+    "examples": [
+      {
+        "input": "horse\nros",
+        "output": "3",
+        "explanation": "horse -> rorse -> rose -> ros."
+      },
+      {
+        "input": "abc\nabc",
+        "output": "0",
+        "explanation": "Already equal."
+      }
+    ]
+  }
+]

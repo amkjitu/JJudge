@@ -49,6 +49,14 @@ spring:
       # which points at the network rather than at this line.
       timeout: ${ARENA_REDIS_TIMEOUT:2s}
       connect-timeout: ${ARENA_REDIS_CONNECT_TIMEOUT:2s}
+    mongodb:
+      uri: ${ARENA_MONGO_URI:mongodb://localhost:27017/codearena}
+      # Auto-index-creation is off by default in Spring Data MongoDB and stays off here.
+      # Building indexes as a side effect of the first write means the shape of the collection
+      # depends on which application instance started first, and an index appearing under load
+      # is a production incident rather than a deployment step. Indexes are declared explicitly
+      # at startup instead - see MongoIndexConfig.
+      auto-index-creation: false
     web:
       pageable:
         default-page-size: 20
@@ -107,6 +115,18 @@ springdoc:
 arena:
   kafka:
     verdict-consumers: ${ARENA_VERDICT_CONSUMERS:1}
+
+  ai-client:
+    # Hints and complexity analysis come from arena-ai. Off leaves the platform fully functional
+    # minus those two features, which is the right default relationship: the AI service is an
+    # enrichment, and nothing in the judging pipeline waits on it.
+    enabled: ${ARENA_AI_CLIENT_ENABLED:true}
+    base-url: ${ARENA_AI_URL:http://arena-ai:8090}
+    connect-timeout: ${ARENA_AI_CONNECT_TIMEOUT:2s}
+    # Longer than arena-ai's own model timeout, so its heuristic fallback gets a chance to
+    # answer before this gives up on it. Setting this shorter would mean the fallback that
+    # exists specifically for slow models never actually gets used.
+    read-timeout: ${ARENA_AI_READ_TIMEOUT:30s}
 
   recommendation:
     # Weakness dominates on purpose: the product claims to surface what you are bad at, and the

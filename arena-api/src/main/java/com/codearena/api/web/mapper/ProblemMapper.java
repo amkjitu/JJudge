@@ -28,8 +28,19 @@ public interface ProblemMapper {
     @Mapping(target = "tags", source = "tags", qualifiedByName = "tagNames")
     ProblemSummaryResponse toSummary(Problem problem);
 
+    /**
+     * The statement is ignored here because it does not live in PostgreSQL - {@code ProblemService}
+     * reads it from MongoDB and attaches it afterwards.
+     *
+     * <p>{@code withStatement} is ignored for a duller reason: MapStruct reads any single-argument
+     * method returning the target type as a fluent setter, so the copy method on the record looks
+     * to it like a writable property. With {@code unmappedTargetPolicy=ERROR} that fails the build
+     * - and only on a <em>clean</em> one, because an incremental compile does not re-run the
+     * annotation processor. Worth stating rather than leaving as a mystery line.
+     */
     @Mapping(target = "tags", source = "tags", qualifiedByName = "tagNames")
     @Mapping(target = "statementMarkdown", ignore = true)
+    @Mapping(target = "withStatement", ignore = true)
     ProblemDetailResponse toDetail(Problem problem);
 
     /**
