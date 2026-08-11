@@ -2,6 +2,7 @@ package com.codearena.ai.hint;
 
 import com.codearena.ai.AnswerSource;
 import com.codearena.ai.config.AiProperties;
+import com.codearena.ai.config.ModelAvailability;
 import com.codearena.ai.web.dto.HintRequest;
 import com.codearena.ai.web.dto.HintResponse;
 import org.slf4j.Logger;
@@ -69,13 +70,16 @@ public class HintService {
     private final ObjectProvider<ChatClient> chatClient;
     private final TagHintLibrary library;
     private final AiProperties properties;
+    private final ModelAvailability availability;
 
     public HintService(ObjectProvider<ChatClient> chatClient,
                        TagHintLibrary library,
-                       AiProperties properties) {
+                       AiProperties properties,
+                       ModelAvailability availability) {
         this.chatClient = chatClient;
         this.library = library;
         this.properties = properties;
+        this.availability = availability;
     }
 
     public HintResponse hint(HintRequest request) {
@@ -83,11 +87,13 @@ public class HintService {
         int level = Math.max(1, Math.min(requested, MAX_LEVEL));
 
         ChatClient client = chatClient.getIfAvailable();
-        if (client != null) {
+        if (client != null && availability.shouldTry()) {
             String hint = askModel(client, request, level);
             if (hint != null) {
+                availability.recordSuccess();
                 return new HintResponse(hint, level, MAX_LEVEL, AnswerSource.MODEL);
             }
+            availability.recordFailure();
         }
 
         return new HintResponse(fromLibrary(request, level), level, MAX_LEVEL,

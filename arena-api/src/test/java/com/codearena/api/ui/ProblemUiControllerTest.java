@@ -203,6 +203,25 @@ class ProblemUiControllerTest {
 
     @Test
     @WithMockUser(username = "bob")
+    @DisplayName("the hint card points at the page route, not the bearer-only API route")
+    void hintCardUsesTheSessionRoute() throws Exception {
+        // The bug this pins down: the card advertised /api/v1/assist/..., which is on the
+        // stateless bearer-only chain. The browser carries a session cookie and no token, so
+        // every hint came back 401 and the panel showed "Could not fetch a hint" - while a curl
+        // against the session route passed happily, because it never used the URL the page uses.
+        // The route existing is not the same as the page pointing at it.
+        when(problemService.getDetail("dijkstra-on-a-weighted-grid")).thenReturn(detail());
+
+        mockMvc.perform(get("/problems/dijkstra-on-a-weighted-grid"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "data-hint-url=\"/problems/dijkstra-on-a-weighted-grid/hint\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("data-hint-url=\"/api/"))));
+    }
+
+    @Test
+    @WithMockUser(username = "bob")
     @DisplayName("a hint is returned as JSON with its level and its provenance")
     void hintReturnsJson() throws Exception {
         when(problemService.getDetail("dijkstra-on-a-weighted-grid")).thenReturn(detail());

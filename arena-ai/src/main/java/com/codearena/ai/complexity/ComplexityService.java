@@ -2,6 +2,7 @@ package com.codearena.ai.complexity;
 
 import com.codearena.ai.AnswerSource;
 import com.codearena.ai.config.AiProperties;
+import com.codearena.ai.config.ModelAvailability;
 import com.codearena.ai.web.dto.ComplexityResponse;
 import com.codearena.common.domain.Language;
 import org.slf4j.Logger;
@@ -51,22 +52,27 @@ public class ComplexityService {
     private final ObjectProvider<ChatClient> chatClient;
     private final StaticComplexityAnalyser analyser;
     private final AiProperties properties;
+    private final ModelAvailability availability;
 
     public ComplexityService(ObjectProvider<ChatClient> chatClient,
                              StaticComplexityAnalyser analyser,
-                             AiProperties properties) {
+                             AiProperties properties,
+                             ModelAvailability availability) {
         this.chatClient = chatClient;
         this.analyser = analyser;
         this.properties = properties;
+        this.availability = availability;
     }
 
     public ComplexityResponse analyse(Language language, String sourceCode) {
         ChatClient client = chatClient.getIfAvailable();
-        if (client != null) {
+        if (client != null && availability.shouldTry()) {
             ComplexityResponse answer = askModel(client, language, sourceCode);
             if (answer != null) {
+                availability.recordSuccess();
                 return answer;
             }
+            availability.recordFailure();
         }
         return heuristic(sourceCode);
     }

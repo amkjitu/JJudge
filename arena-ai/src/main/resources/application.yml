@@ -30,7 +30,13 @@ arena:
     enabled: ${ARENA_AI_ENABLED:true}
     # A hint that arrives after the reader has given up is worth nothing, and the fallback is
     # immediate - so this is short on purpose.
-    timeout: ${ARENA_AI_TIMEOUT:20s}
+    #
+    # It also has to leave room inside arena-api's read timeout (ARENA_AI_READ_TIMEOUT, 30s):
+    # at 20s the model timeout plus request overhead landed right on that limit, and every hint
+    # came back a 503 on a machine with no Ollama running. Two timeouts each defensible on their
+    # own, adding up to a broken feature. ModelAvailability is the real fix - after two failures
+    # the model is skipped entirely - but the first probe still has to fit.
+    timeout: ${ARENA_AI_TIMEOUT:10s}
     max-source-chars: ${ARENA_AI_MAX_SOURCE_CHARS:20000}
 
 server:

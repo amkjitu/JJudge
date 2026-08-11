@@ -41,6 +41,15 @@ public class AiConfig {
     private static final Logger log = LoggerFactory.getLogger(AiConfig.class);
 
     /**
+     * Injected rather than called statically, so {@link ModelAvailability}'s cooldown can be
+     * driven from a test without sleeping through it.
+     */
+    @Bean
+    public java.time.Clock clock() {
+        return java.time.Clock.systemUTC();
+    }
+
+    /**
      * @return a chat client, or {@code null} when no model is configured. A null bean is
      *         deliberate: callers take {@code ObjectProvider<ChatClient>} and treat absence as
      *         a supported mode, which is clearer than a no-op client that silently returns

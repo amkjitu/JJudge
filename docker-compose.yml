@@ -75,6 +75,9 @@ services:
   kafka:
     image: apache/kafka:3.8.0
     container_name: arena-kafka
+    # Same reason as the application services: the broker's entrypoint is PID 1 and does not
+    # reap, so a long-lived container eventually cannot be stopped at all.
+    init: true
     environment:
       # KRaft: this one process is both broker and controller, so there is no ZooKeeper to run,
       # configure or explain. Single-node only - a real cluster separates the roles.
@@ -114,6 +117,11 @@ services:
       dockerfile: arena-ai/Dockerfile
     image: codearena/arena-ai:${ARENA_VERSION:-dev}
     container_name: arena-ai
+    # Run an init process as PID 1. The entrypoint execs java, which makes the JVM PID 1 - and
+    # the JVM does not reap orphaned children. Long-running containers accumulate zombies until
+    # Docker cannot stop them at all ("PID N is zombie and can not be killed"), which turns a
+    # routine restart into a forced removal.
+    init: true
     environment:
       # Points at an Ollama instance if you have one. host.docker.internal reaches an Ollama
       # running on the host; leave it unset and the service answers from static analysis and
@@ -121,7 +129,9 @@ services:
       ARENA_OLLAMA_URL: ${ARENA_OLLAMA_URL:-http://host.docker.internal:11434}
       ARENA_OLLAMA_MODEL: ${ARENA_OLLAMA_MODEL:-llama3.2}
       ARENA_AI_ENABLED: ${ARENA_AI_ENABLED:-true}
-      ARENA_AI_TIMEOUT: ${ARENA_AI_TIMEOUT:-20s}
+      # Must stay well inside arena-api's read timeout (30s), or the fallback never gets
+      # to answer and every hint is a 503. Keep this and ARENA_AI_READ_TIMEOUT in step.
+      ARENA_AI_TIMEOUT: ${ARENA_AI_TIMEOUT:-10s}
       ARENA_LOG_LEVEL: ${ARENA_LOG_LEVEL:-INFO}
       SERVER_PORT: 8090
     # No published port. This service has no authentication of its own because its only client
@@ -147,6 +157,11 @@ services:
       dockerfile: arena-judge/Dockerfile
     image: codearena/arena-judge:${ARENA_VERSION:-dev}
     container_name: arena-judge
+    # Run an init process as PID 1. The entrypoint execs java, which makes the JVM PID 1 - and
+    # the JVM does not reap orphaned children. Long-running containers accumulate zombies until
+    # Docker cannot stop them at all ("PID N is zombie and can not be killed"), which turns a
+    # routine restart into a forced removal.
+    init: true
     environment:
       ARENA_KAFKA_BOOTSTRAP: kafka:9092
       ARENA_JUDGE_TEST_CASES: ${ARENA_JUDGE_TEST_CASES:-20}
@@ -173,6 +188,11 @@ services:
       dockerfile: arena-api/Dockerfile
     image: codearena/arena-api:${ARENA_VERSION:-dev}
     container_name: arena-api
+    # Run an init process as PID 1. The entrypoint execs java, which makes the JVM PID 1 - and
+    # the JVM does not reap orphaned children. Long-running containers accumulate zombies until
+    # Docker cannot stop them at all ("PID N is zombie and can not be killed"), which turns a
+    # routine restart into a forced removal.
+    init: true
     environment:
       ARENA_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-codearena}
       ARENA_DB_USERNAME: ${POSTGRES_USER:-codearena}

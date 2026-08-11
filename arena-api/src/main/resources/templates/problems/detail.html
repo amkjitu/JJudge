@@ -111,8 +111,12 @@
             <!--/* Hints load on demand rather than with the page. A model call can take seconds,
                    and nobody should wait for a hint they did not ask for - most visitors want to
                    read the problem and start typing. */-->
+            <!--/* The page route, not /api/v1/assist. This page authenticates with a session
+                   cookie and the /api chain is stateless and bearer-only, so a fetch there is
+                   anonymous and comes back 401. Both routes exist; only this one is reachable
+                   from a browser. */-->
             <div sec:authorize="isAuthenticated()" class="card mb-3" id="hint-card"
-                 th:attr="data-hint-url=@{/api/v1/assist/problems/{slug}/hint(slug=${problem.slug})}">
+                 th:attr="data-hint-url=@{/problems/{slug}/hint(slug=${problem.slug})}">
                 <div class="card-body py-2">
                     <div class="d-flex justify-content-between align-items-center">
                         <span class="small text-muted">Stuck? Ask for a nudge, not the answer.</span>
@@ -122,7 +126,9 @@
                     </div>
                     <div id="hint-output" class="mt-2 d-none">
                         <p class="mb-1" id="hint-text"></p>
-                        <div class="small text-muted">
+                        <!--/* Hidden as a unit, so an error - which clears both spans - does not
+                               leave a bare separator floating under the message. */-->
+                        <div class="small text-muted d-none" id="hint-meta">
                             <span id="hint-level"></span>
                             <!--/* The provenance is shown, not hidden. A reader calibrates how
                                    much to trust a hint on whether a model reasoned about their
@@ -159,7 +165,7 @@
 
                 <div class="d-flex justify-content-between align-items-center mt-3">
                     <span class="small text-muted">
-                        Judging is asynchronous &mdash; the verdict arrives from Phase 6 onwards.
+                        Judging is asynchronous &mdash; the verdict appears on the submission page as it lands.
                     </span>
                     <button class="btn btn-primary" type="submit">Submit solution</button>
                 </div>

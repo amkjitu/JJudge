@@ -1,23 +1,37 @@
 # Screenshots
 
-Images referenced by the root `README.md`. Capture these once the relevant phase is done and
-drop them here using the exact filenames below.
+Images referenced by the root `README.md`. All captured from the running compose stack with the
+seeded demo data — nothing mocked up or hand-edited.
 
-| File | Phase | What to capture |
-|---|---|---|
-| `hero.png` | 4 | Dashboard, logged in as `bob`, with the "Recommended for you" panel visible. This is the first image a reviewer sees — make it the strongest one. |
-| `submit-verdict.gif` | 6 | Short loop: paste a solution → submit → status flips QUEUED → RUNNING → verdict, live over SSE. No page reload in the clip. |
-| `problem-list.png` | 4 | Problem list with a tag filter and a difficulty filter applied, pagination controls visible. |
-| `problem-detail.png` | 4 | Problem detail: markdown statement on the left, CodeMirror editor with syntax highlighting on the right. |
-| `recommendations.png` | 5 | The recommendation panel close up, ideally showing tag diversity across the entries. |
-| `leaderboard.png` | 5 | Redis-backed leaderboard with several users ranked. |
-| `profile-charts.png` | 4 | Profile page: solved-by-tag chart plus progress-over-time chart. |
-| `ai-hint.png` | 7 | AI hint modal — pick a hint that nudges without giving the solution away. |
-| `swagger.png` | 2 | Swagger UI at `/swagger-ui.html` with a couple of endpoint groups expanded. |
+| File | What it shows |
+|---|---|
+| `hero.png` | Dashboard as `bob`: standing, weakest topics, and the recommendation panel |
+| `problem-detail.png` | Problem detail — MongoDB statement rendered from Markdown, worked examples, CodeMirror editor, editorial behind a spoiler |
+| `ai-hint.png` | A hint with its provenance line, showing whether a model or the built-in library answered |
+| `recommendations.png` | The recommendation cards close up, each naming its targeted weak topic |
+| `problem-list.png` | Catalogue with tag and difficulty filters applied |
+| `profile-charts.png` | Profile: solved-by-tag and progress-over-time |
+| `leaderboard.png` | Redis-backed ranking with solve counts joined from PostgreSQL |
+| `swagger.png` | OpenAPI UI at `/swagger-ui.html` |
 
-## Capture guidance
+## Recapturing
 
-- Viewport **1440×900**, browser chrome cropped out.
-- Use the seeded demo accounts so the data looks plausible rather than empty.
-- Keep the same theme across every shot.
-- PNG for stills; for the GIF aim for under ~4 MB so GitHub renders it inline.
+The stack must be up (`docker compose up -d --build`) and seeded. The capture script drives the
+system Chrome through puppeteer-core, logs in through the real form, and writes the PNGs here:
+
+```bash
+node docs/screenshots/capture.mjs
+```
+
+Viewport is 1440×900 with browser chrome excluded, which is what keeps the set visually
+consistent. The first page load after a cold start can take half a minute on a modest machine —
+the script's timeouts allow for that, so a slow first shot is not a failure.
+
+## No submit-to-verdict GIF
+
+An earlier plan here called for an animated capture of a submission flipping from `QUEUED` to a
+verdict over SSE. There is no GIF, and the reason is worth stating rather than leaving as a
+gap: judging completes in about two seconds, so the interesting part is a badge changing once.
+A four-megabyte animation to show that is a poor trade against a sentence saying it, and the
+behaviour is covered where it can actually be checked — by `SubmissionPipelineIT`, and by the
+`compose` job in CI, which submits a solution and waits for the verdict.

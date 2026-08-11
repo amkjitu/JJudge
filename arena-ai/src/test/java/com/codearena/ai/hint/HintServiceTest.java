@@ -2,6 +2,7 @@ package com.codearena.ai.hint;
 
 import com.codearena.ai.AnswerSource;
 import com.codearena.ai.config.AiProperties;
+import com.codearena.ai.config.ModelAvailability;
 import com.codearena.ai.web.dto.HintRequest;
 import com.codearena.ai.web.dto.HintResponse;
 import org.junit.jupiter.api.DisplayName;
@@ -26,8 +27,9 @@ class HintServiceTest {
 
     private final AiProperties properties = new AiProperties(true, Duration.ofSeconds(5), 20_000);
 
-    private final HintService service =
-            new HintService(noChatClient(), new TagHintLibrary(), properties);
+    private final HintService service = new HintService(
+            noChatClient(), new TagHintLibrary(), properties,
+            new ModelAvailability(java.time.Clock.systemUTC()));
 
     @SuppressWarnings("unchecked")
     private static ObjectProvider<ChatClient> noChatClient() {

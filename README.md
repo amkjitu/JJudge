@@ -1,6 +1,6 @@
 # CodeArena
 
-[![Build](https://img.shields.io/badge/build-passing-brightgreen)](#testing)
+[![CI](https://github.com/amkjitu/jjudge/actions/workflows/ci.yml/badge.svg)](https://github.com/amkjitu/jjudge/actions/workflows/ci.yml)
 [![Java](https://img.shields.io/badge/Java-17-orange)](https://adoptium.net/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.16-brightgreen)](https://spring.io/projects/spring-boot)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
@@ -9,16 +9,28 @@ A competitive-programming practice platform: browse problems, submit solutions, 
 asynchronously judged verdicts, climb a leaderboard — and get told *what to solve next* by a
 recommendation engine that models your per-topic proficiency.
 
-> **Status: Phase 7 of 8 complete.** Domain model, migrations, seed data, a versioned REST API
-> with RFC 7807 errors and OpenAPI docs, JWT + OAuth2 authentication with rotating refresh
-> tokens and per-user rate limiting, a server-rendered Thymeleaf UI with a CodeMirror editor and
-> Chart.js progress charts, the recommendation engine with a Redis-backed leaderboard, an async
-> judging pipeline over Kafka with live verdicts over SSE, and MongoDB-backed problem statements
-> alongside an `arena-ai` service for hints and complexity analysis — all running in Docker.
-> The build order and what each phase adds is in [Roadmap](#roadmap).
+> **Status: complete.** A versioned REST API with RFC 7807 errors and OpenAPI docs; JWT and
+> OAuth2 authentication with rotating refresh tokens and per-user rate limiting; a
+> server-rendered Thymeleaf UI with a CodeMirror editor and Chart.js progress charts; a
+> recommendation engine with a Redis-backed leaderboard; an async judging pipeline over Kafka
+> with live verdicts over SSE; MongoDB-backed problem statements and a source archive; and an
+> `arena-ai` service for hints and complexity analysis that degrades to static analysis when no
+> model is reachable. Seven containers, one `docker compose up`, and CI that judges a submission
+> end to end. What each phase added is in [Roadmap](#roadmap).
 
-<!-- TODO(phase-8): hero screenshot / GIF goes here -->
-<!-- TODO(phase-8): live demo link + demo credentials -->
+![The dashboard: recommendations targeted at the topics you are weakest at](docs/screenshots/hero.png)
+
+**Try it in one command.** No demo is hosted — this stack is seven containers and a hosted
+instance would be a bill rather than a portfolio piece, so it runs on your machine instead:
+
+```bash
+docker compose up -d --build
+```
+
+Then open <http://localhost:8080/> and sign in as `bob` / `Password123!`. The seeded accounts
+(`alice`, `bob`, `carol`, `admin`) have deliberately different skill profiles, so the
+recommender produces visibly different output for each. Credentials for a throwaway local
+database — not secrets.
 
 ---
 
@@ -99,7 +111,7 @@ Four Maven modules: `arena-common` (shared enums and event contracts), `arena-ap
 | API | Versioned `/api/v1`, MapStruct DTO mapping, Bean Validation, RFC 7807 errors |
 | API docs | springdoc-openapi at `/swagger-ui.html` |
 | Testing | JUnit 5, AssertJ, Mockito, Testcontainers |
-| Infra | Multi-stage Docker builds, Docker Compose, GitHub Actions *(Phase 8)* |
+| Infra | Multi-stage Docker builds, Docker Compose, GitHub Actions |
 
 ---
 
@@ -874,6 +886,48 @@ Server-rendered Thymeleaf, reachable at <http://localhost:8080/>.
 | Leaderboard | `/leaderboard` |
 | Admin problem CRUD | `/admin/problems` |
 
+### What it looks like
+
+Every image below is a capture of the running stack with the seeded data — nothing mocked up.
+
+**Problem detail.** The statement, constraints and worked examples come from MongoDB and are
+rendered from Markdown server-side; the editor is CodeMirror. The editorial sits behind a
+spoiler control, because handing someone the answer next to the submit box defeats the point.
+
+![Problem detail with a rendered statement, worked examples and the code editor](docs/screenshots/problem-detail.png)
+
+**Hints.** Levelled 1–3 and loaded on demand. The line under the hint says whether a model
+produced it or the built-in library did — the reader is entitled to know which.
+
+![A hint, labelled with where it came from](docs/screenshots/ai-hint.png)
+
+**Recommendations.** Each card names the reason it was chosen and how large the topic gap is.
+
+![Recommendation cards showing the targeted weak topic and the size of the gap](docs/screenshots/recommendations.png)
+
+<details>
+<summary>More: catalogue, profile charts, leaderboard, API docs</summary>
+
+**Catalogue** with tag and difficulty filters, echoed back into the form so a filtered URL is
+shareable.
+
+![Problem catalogue with filters applied](docs/screenshots/problem-list.png)
+
+**Profile** — solved-by-tag and progress over time, both from the same submission history the
+recommender reads.
+
+![Profile page with solved-by-tag and progress charts](docs/screenshots/profile-charts.png)
+
+**Leaderboard**, served from the Redis sorted set with solve counts joined on from PostgreSQL.
+
+![Leaderboard ranking the seeded users](docs/screenshots/leaderboard.png)
+
+**OpenAPI** at `/swagger-ui.html`.
+
+![Swagger UI listing the endpoint groups](docs/screenshots/swagger.png)
+
+</details>
+
 ### Two authentication mechanisms, on purpose
 
 `/api/**` is a **stateless bearer-token** chain; everything else is a **session** chain with
@@ -995,7 +1049,7 @@ Override with `-Ddocker.api.version=…` if your engine needs something differen
 | 5 | Recommendation engine, Redis leaderboard | ✅ done |
 | 6 | Kafka pipeline, `arena-judge` worker, SSE live verdicts | ✅ done |
 | 7 | MongoDB statements/sources, `arena-ai` hints and complexity analysis | ✅ done |
-| 8 | Full compose stack, GitHub Actions, docs, screenshots | ⬜ |
+| 8 | Full compose stack, GitHub Actions, docs, screenshots | ✅ done |
 
 ---
 

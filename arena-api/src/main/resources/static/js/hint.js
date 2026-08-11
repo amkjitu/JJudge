@@ -20,6 +20,7 @@
     var button = document.getElementById('hint-button');
     var output = document.getElementById('hint-output');
     var text = document.getElementById('hint-text');
+    var meta = document.getElementById('hint-meta');
     var levelLabel = document.getElementById('hint-level');
     var sourceLabel = document.getElementById('hint-source');
     var url = card.getAttribute('data-hint-url');
@@ -70,6 +71,7 @@
                 show(data.hint, false);
                 levelLabel.textContent = 'Hint ' + level + ' of ' + maxLevel;
                 sourceLabel.textContent = describeSource(data.source);
+                meta.classList.remove('d-none');
 
                 if (level >= maxLevel) {
                     button.textContent = 'No more hints';
@@ -83,6 +85,7 @@
                 show(error.message, true);
                 levelLabel.textContent = '';
                 sourceLabel.textContent = '';
+                meta.classList.add('d-none');
                 button.textContent = 'Try again';
                 button.disabled = false;
             });
