@@ -13,5 +13,13 @@ public enum Verdict {
     /** Runtime error. */
     RTE,
     /** Compilation error. */
-    CE
+    CE,
+    /**
+     * Memory limit exceeded.
+     *
+     * <p>Only reachable from the sandboxed judge, which can tell a kill for exceeding the memory
+     * ceiling from an ordinary crash. The simulated judge never produces it - it has no memory to
+     * measure.
+     */
+    MLE
 }
