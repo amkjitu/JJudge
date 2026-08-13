@@ -16,7 +16,7 @@ public class UnsupportedLanguageException extends RuntimeException {
 
     public UnsupportedLanguageException(Language language) {
         super("This judge has no toolchain for " + language
-                + "; the runner image carries Python and C++ only");
+                + "; the runner image carries Python, C++ and Java");
         this.language = language;
     }
 

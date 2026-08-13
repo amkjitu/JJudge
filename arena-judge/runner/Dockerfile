@@ -8,9 +8,13 @@
 # on either, but defence that relies on a single control is not defence.
 FROM alpine:3.20
 
-# python3 for interpreted submissions, g++ for compiled ones. libstdc++ is needed at runtime by
-# anything g++ produces.
-RUN apk add --no-cache python3 g++ libstdc++
+# python3 for interpreted submissions, g++ and the JDK for compiled ones. libstdc++ is needed at
+# runtime by anything g++ produces.
+#
+# The JDK roughly doubles this image. That is the price of judging the language most people write
+# these solutions in - and one image carrying every toolchain is simpler to keep in step than one
+# image per language, at the cost of pulling a compiler you may not use.
+RUN apk add --no-cache python3 g++ libstdc++ openjdk17-jdk
 
 # A non-root user with no shell and no home directory to write into. Containers are also started
 # with --user, so this is belt and braces: an image that defaults to root is one --user flag away

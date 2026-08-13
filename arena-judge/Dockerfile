@@ -38,6 +38,13 @@ RUN java -Djarmode=layertools -jar app.jar extract
 # Stage 4 - runtime. JRE only, non-root, no build tooling.
 # ---------------------------------------------------------------------------------------
 FROM eclipse-temurin:17-jre-alpine
+
+# The docker client, for REAL judging mode: the sandbox creates one hardened container per
+# submission by invoking it. Only the client - there is no daemon in here; it talks to whichever
+# socket is mounted in. In SIMULATED mode nothing ever executes it, and the ~40MB is the price of
+# one image that can do both rather than two images to keep in step.
+RUN apk add --no-cache docker-cli
+
 RUN addgroup -S arena && adduser -S -G arena arena
 WORKDIR /app
 

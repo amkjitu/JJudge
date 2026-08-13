@@ -36,7 +36,25 @@ public record LanguageToolchain(String sourceFile, List<String> compile, List<St
             Language.CPP, new LanguageToolchain(
                     "main.cpp",
                     List.of("g++", "-std=c++17", "-O2", "-static", "-o", "main", "main.cpp"),
-                    List.of("./main")));
+                    List.of("./main")),
+
+            // The file must be Main.java because javac requires the filename to match the public
+            // class, and every submission template declares `public class Main`.
+            //
+            // The run flags are not decoration:
+            //   -XX:+UseSerialGC       a parallel collector starts several GC threads for a
+            //                          program that lives half a second, which costs more than it
+            //                          collects - and each one counts against the PID limit.
+            //   -XX:MaxRAMPercentage   the JVM reads the cgroup limit, but defaults to a quarter
+            //                          of it. On a 256 MB container that is a 64 MB heap, which
+            //                          fails solutions that are well within the stated limit.
+            //   -Xss64m                deep recursion is ordinary in competitive programming, and
+            //                          the default stack overflows on inputs the problem allows.
+            Language.JAVA, new LanguageToolchain(
+                    "Main.java",
+                    List.of("javac", "Main.java"),
+                    List.of("java", "-XX:+UseSerialGC", "-XX:MaxRAMPercentage=75", "-Xss64m",
+                            "Main")));
 
     public static Optional<LanguageToolchain> forLanguage(Language language) {
         return Optional.ofNullable(SUPPORTED.get(language));

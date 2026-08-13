@@ -43,9 +43,9 @@ import java.util.concurrent.TimeUnit;
  *       unprivileged, with no capabilities and no way to acquire any.</li>
  * </ul>
  *
- * <p>Commands are executed as argv, never through a shell. Source code is placed with
- * {@code docker cp} rather than piped through {@code sh -c}, so no part of a submission is ever
- * interpreted as a command.
+ * <p>Commands are executed as argv, never through a shell. The one exception is writing the
+ * source file, which pipes content into {@code cat} over stdin - the code never appears in argv,
+ * so there is nothing for a crafted submission to break out of. See {@code writeFile}.
  */
 public class DockerSandbox implements Sandbox {
 
@@ -105,33 +105,37 @@ public class DockerSandbox implements Sandbox {
             this.container = container;
         }
 
+        /**
+         * Writes a file by piping it into {@code cat} inside the container.
+         *
+         * <p>Not {@code docker cp}, which was the obvious choice and does not work: it refuses
+         * with "container rootfs is marked read-only" even when the destination is the writable
+         * tmpfs, because it checks the rootfs rather than the target mount. That only surfaced
+         * when a submission was judged end to end.
+         *
+         * <p>The shell here is safe despite handling untrusted content: the source code travels
+         * on <em>stdin</em> and never appears in argv, so there is nothing for it to break out
+         * of. Only {@code relativePath} is interpolated, and that comes from
+         * {@code LanguageToolchain}'s own constants - never from a submission.
+         */
         @Override
         public void writeFile(String relativePath, String content) {
-            Path staged = null;
-            try {
-                staged = Files.createTempFile("arena-src-", ".tmp");
-                Files.writeString(staged, content, StandardCharsets.UTF_8);
+            if (!relativePath.matches("[A-Za-z0-9._-]+")) {
+                // Defence against a future caller passing something derived from user input.
+                throw new IllegalArgumentException("Unsafe workspace filename: " + relativePath);
+            }
 
-                ExecutionResult copied = runHost(
-                        List.of(properties.dockerBinary(), "cp",
-                                staged.toAbsolutePath().toString(),
-                                container + ":/work/" + relativePath),
-                        "", properties.dockerCommandTimeout(), 64 * 1024);
+            ExecutionResult written = runHost(
+                    List.of(properties.dockerBinary(), "exec", "--interactive",
+                            "--user", properties.runAsUser(),
+                            "--workdir", "/work",
+                            container,
+                            "sh", "-c", "cat > " + relativePath),
+                    content, properties.dockerCommandTimeout(), 64 * 1024);
 
-                if (!copied.succeeded()) {
-                    throw new SandboxUnavailableException(
-                            "Could not place " + relativePath + ": " + copied.stderr().strip());
-                }
-            } catch (IOException e) {
-                throw new SandboxUnavailableException("Could not stage " + relativePath, e);
-            } finally {
-                if (staged != null) {
-                    try {
-                        Files.deleteIfExists(staged);
-                    } catch (IOException e) {
-                        log.warn("Could not remove staged file {}: {}", staged, e.getMessage());
-                    }
-                }
+            if (!written.succeeded()) {
+                throw new SandboxUnavailableException(
+                        "Could not place " + relativePath + ": " + written.stderr().strip());
             }
         }
 

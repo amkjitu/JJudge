@@ -4,6 +4,14 @@ spring:
   main:
     web-application-type: none
 
+  data:
+    mongodb:
+      # Only read in REAL mode, for test cases. Spring Data auto-configures a client whenever the
+      # starter is on the classpath, so this points somewhere sane rather than leaving the default
+      # to make every lookup wait out a connection timeout.
+      uri: ${ARENA_MONGO_URI:mongodb://localhost:27017/codearena}
+      auto-index-creation: false
+
   kafka:
     bootstrap-servers: ${ARENA_KAFKA_BOOTSTRAP:localhost:9092}
 
@@ -53,6 +61,19 @@ spring:
 
 arena:
   judge:
+    # SIMULATED derives a verdict from a hash of the submission: nothing is compiled or run.
+    # REAL compiles and executes it in a sandbox, which requires a Docker socket - and a Docker
+    # socket is root on the host that owns it. Opt in deliberately, never in a public deployment.
+    mode: ${ARENA_JUDGE_MODE:SIMULATED}
+
+    sandbox:
+      runner-image: ${ARENA_RUNNER_IMAGE:codearena/arena-runner:dev}
+      memory-megabytes: ${ARENA_SANDBOX_MEMORY_MB:256}
+      workspace-megabytes: ${ARENA_SANDBOX_WORKSPACE_MB:64}
+      pid-limit: ${ARENA_SANDBOX_PID_LIMIT:64}
+      cpus: ${ARENA_SANDBOX_CPUS:1.0}
+      compile-timeout: ${ARENA_SANDBOX_COMPILE_TIMEOUT:20s}
+
     test-cases: ${ARENA_JUDGE_TEST_CASES:20}
     worker-threads: ${ARENA_JUDGE_THREADS:4}
     consumers: ${ARENA_JUDGE_CONSUMERS:2}

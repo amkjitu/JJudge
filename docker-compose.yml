@@ -169,8 +169,28 @@ services:
       ARENA_JUDGE_CONSUMERS: ${ARENA_JUDGE_CONSUMERS:-2}
       ARENA_JUDGE_CASE_DELAY_MS: ${ARENA_JUDGE_CASE_DELAY_MS:-40}
       ARENA_LOG_LEVEL: ${ARENA_LOG_LEVEL:-INFO}
+
+      # SIMULATED derives verdicts from a hash and executes nothing. REAL compiles and runs each
+      # submission in a locked-down container, which needs the Docker socket mounted below - and
+      # a Docker socket is root on the host that owns it. See docs/REAL-JUDGE.md before enabling.
+      ARENA_JUDGE_MODE: ${ARENA_JUDGE_MODE:-SIMULATED}
+      ARENA_RUNNER_IMAGE: ${ARENA_RUNNER_IMAGE:-codearena/arena-runner:dev}
+      ARENA_MONGO_URI: mongodb://mongo:27017/${MONGO_DB:-codearena}
+    volumes:
+      # Present but harmless in SIMULATED mode: nothing in the judge opens it unless the mode is
+      # REAL, which is when the sandbox bean is created at all. Comment it out to make that
+      # structural rather than a matter of configuration.
+      - ${ARENA_DOCKER_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock
+    # The socket is owned by root:root with mode 0660, so a non-root process cannot open it.
+    # Group membership rather than running the judge as root: the process keeps its unprivileged
+    # uid, and only the socket becomes reachable. 0 is correct on Docker Desktop, where the socket
+    # is root-owned; on most Linux hosts it is the gid of the `docker` group (`getent group docker`).
+    group_add:
+      - "${ARENA_DOCKER_GID:-0}"
     depends_on:
       kafka:
+        condition: service_healthy
+      mongo:
         condition: service_healthy
     healthcheck:
       # No HTTP server in this process, so liveness is "the JVM is still there" rather than a

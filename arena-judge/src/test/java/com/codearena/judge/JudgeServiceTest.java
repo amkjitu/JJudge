@@ -4,6 +4,9 @@ import com.codearena.common.domain.Language;
 import com.codearena.common.domain.Verdict;
 import com.codearena.common.event.SubmissionCreated;
 import com.codearena.common.event.VerdictAssigned;
+import com.codearena.judge.real.JudgeTestCase;
+import com.codearena.judge.real.SandboxedJudgeEngine;
+import com.codearena.judge.real.TestCaseSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -11,10 +14,16 @@ import org.junit.jupiter.api.Test;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @DisplayName("JudgeService")
 class JudgeServiceTest {
@@ -33,9 +42,12 @@ class JudgeServiceTest {
     private JudgeService serviceWith(int testCases) {
         // Zero delay: the sleep exists to make the pipeline observable in a browser, not to slow
         // down a unit test.
-        JudgeProperties properties = new JudgeProperties(testCases, 4, 1, 0);
+        JudgeProperties properties =
+                new JudgeProperties(JudgeProperties.Mode.SIMULATED, testCases, 4, 1, 0);
+        // No sandbox and no test-case source: this asserts how outcomes are reduced to a verdict,
+        // which is the same arithmetic whichever engine produced them.
         return new JudgeService(new SimulatedJudge(), pool, properties,
-                Clock.fixed(NOW, ZoneOffset.UTC));
+                Clock.fixed(NOW, ZoneOffset.UTC), Optional.empty(), Optional.empty());
     }
 
     private static SubmissionCreated submission(String source) {
@@ -117,5 +129,31 @@ class JudgeServiceTest {
         VerdictAssigned verdict = serviceWith(1).judge(submission(WORKING_SOLUTION));
 
         assertThat(verdict.testsTotal()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("a compile error is reported rather than crashing the judge")
+    void compileErrorIsReported() {
+        // The sandboxed engine reports CE as a single outcome built with List.of, and
+        // JudgeService used to sort its outcomes in place - so every submission that failed to
+        // compile threw UnsupportedOperationException and was never judged at all. It reached
+        // Kafka's error handler, retried twice, and was abandoned.
+        SandboxedJudgeEngine engine = mock(SandboxedJudgeEngine.class);
+        when(engine.run(any(), any()))
+                .thenReturn(List.of(TestCaseOutcome.failed(0, Verdict.CE, 12)));
+
+        TestCaseSource cases = mock(TestCaseSource.class);
+        when(cases.findFor(anyString()))
+                .thenReturn(List.of(new JudgeTestCase(1, "in", "out")));
+
+        JudgeProperties properties =
+                new JudgeProperties(JudgeProperties.Mode.REAL, 1, 1, 1, 0);
+        JudgeService service = new JudgeService(new SimulatedJudge(), pool, properties,
+                Clock.fixed(NOW, ZoneOffset.UTC), Optional.of(engine), Optional.of(cases));
+
+        VerdictAssigned verdict = service.judge(submission("class Main {"));
+
+        assertThat(verdict.verdict()).isEqualTo(Verdict.CE);
+        assertThat(verdict.testsPassed()).isZero();
     }
 }

@@ -3,6 +3,9 @@ package com.codearena.judge;
 import com.codearena.common.domain.Verdict;
 import com.codearena.common.event.SubmissionCreated;
 import com.codearena.common.event.VerdictAssigned;
+import com.codearena.judge.real.JudgeTestCase;
+import com.codearena.judge.real.SandboxedJudgeEngine;
+import com.codearena.judge.real.TestCaseSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -10,6 +13,7 @@ import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -38,25 +42,38 @@ public class JudgeService {
     private final ExecutorService testCasePool;
     private final JudgeProperties properties;
     private final Clock clock;
+    private final Optional<SandboxedJudgeEngine> sandboxedEngine;
+    private final Optional<TestCaseSource> testCaseSource;
 
     public JudgeService(SimulatedJudge simulatedJudge,
                         ExecutorService testCasePool,
                         JudgeProperties properties,
-                        Clock clock) {
+                        Clock clock,
+                        Optional<SandboxedJudgeEngine> sandboxedEngine,
+                        Optional<TestCaseSource> testCaseSource) {
         this.simulatedJudge = simulatedJudge;
         this.testCasePool = testCasePool;
         this.properties = properties;
         this.clock = clock;
+        this.sandboxedEngine = sandboxedEngine;
+        this.testCaseSource = testCaseSource;
     }
 
     public VerdictAssigned judge(SubmissionCreated submission) {
         long startedAt = System.nanoTime();
-        List<TestCaseOutcome> outcomes = runAllCases(submission);
+        List<TestCaseOutcome> outcomes = executeOrSimulate(submission);
 
         // Ordered by index so "first failure" means the earliest case, not whichever thread
         // happened to finish first. Without this the reported failing case would vary between
         // runs of identical input.
-        outcomes.sort(Comparator.comparingInt(TestCaseOutcome::index));
+        //
+        // Sorted into a new list rather than in place: an engine is entitled to return an
+        // immutable one, and the sandboxed engine does for a compile error - a single CE outcome
+        // built with List.of. Sorting that threw UnsupportedOperationException, so every
+        // submission that failed to compile took the judge down instead of being reported.
+        outcomes = outcomes.stream()
+                .sorted(Comparator.comparingInt(TestCaseOutcome::index))
+                .toList();
 
         TestCaseOutcome firstFailure = outcomes.stream()
                 .filter(outcome -> !outcome.passed())
@@ -84,6 +101,32 @@ public class JudgeService {
                 outcomes.size(),
                 firstFailure == null ? null : firstFailure.index(),
                 clock.instant());
+    }
+
+    /**
+     * Runs the submission for real when that is configured and possible, and simulates otherwise.
+     *
+     * <p>The fallback is not a nicety. Only some problems have test cases written, and a
+     * submission to one that does not cannot be judged - but leaving it QUEUED for ever is a
+     * worse answer than a simulated verdict, and refusing to start would take the whole worker
+     * down over one unprepared problem. So it degrades, loudly: the log says which happened, and
+     * the verdict itself carries no claim about how it was reached until that is threaded through
+     * the event.
+     */
+    private List<TestCaseOutcome> executeOrSimulate(SubmissionCreated submission) {
+        if (!properties.judgesForReal() || sandboxedEngine.isEmpty() || testCaseSource.isEmpty()) {
+            return runAllCases(submission);
+        }
+
+        List<JudgeTestCase> cases = testCaseSource.get().findFor(submission.problemSlug());
+        if (cases.isEmpty()) {
+            log.warn("No test cases for problem '{}'; simulating submission {} instead of "
+                            + "executing it. Add cases for this problem to judge it for real.",
+                    submission.problemSlug(), submission.submissionId());
+            return runAllCases(submission);
+        }
+
+        return sandboxedEngine.get().run(submission, cases);
     }
 
     private List<TestCaseOutcome> runAllCases(SubmissionCreated submission) {
