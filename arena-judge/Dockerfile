@@ -41,9 +41,15 @@ FROM eclipse-temurin:17-jre-alpine
 
 # The docker client, for REAL judging mode: the sandbox creates one hardened container per
 # submission by invoking it. Only the client - there is no daemon in here; it talks to whichever
-# socket is mounted in. In SIMULATED mode nothing ever executes it, and the ~40MB is the price of
-# one image that can do both rather than two images to keep in step.
-RUN apk add --no-cache docker-cli
+# socket is mounted in, and in SIMULATED mode nothing ever executes it.
+#
+# Copied from the official image rather than installed with apk. The client is a single static
+# binary, so there is nothing to resolve dependencies for - and `apk add` would make every build
+# of this image depend on Alpine's package CDN being reachable, which is a new failure mode for a
+# service that previously needed no package manager at all. It has already failed once here with
+# a transient DNS error, reported as "docker-cli (no such package)" because apk had no index to
+# select from. This also pins the version instead of taking whatever the repository holds today.
+COPY --from=docker:27-cli /usr/local/bin/docker /usr/local/bin/docker
 
 RUN addgroup -S arena && adduser -S -G arena arena
 WORKDIR /app

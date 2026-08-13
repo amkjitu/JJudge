@@ -18,6 +18,29 @@
       th:text="${value != null ? value : status}">AC</span>
 
 <!--/*
+  How a verdict was reached, shown beside the verdict itself.
+
+  A verdict on a problem with no test cases is derived from a hash and says nothing about whether
+  the code is correct. Rendered next to it, an unlabelled SIMULATED verdict is actively
+  misleading - it looks exactly like an earned one - so it is called out in warning colours while
+  an executed verdict gets a quiet neutral mark.
+
+  Nothing is rendered for null. Those are rows that predate the column, and inventing a label for
+  them would be the same dishonesty in the other direction.
+*/-->
+<span th:fragment="judgedBy(value)" th:if="${value != null}">
+    <span th:if="${value.name() == 'SIMULATED'}"
+          class="badge rounded-pill text-bg-warning"
+          title="This problem has no test cases, so the verdict was derived from a hash of the
+                 submission rather than by running it. It does not mean the code is correct.">
+        Simulated</span>
+    <span th:if="${value.name() == 'EXECUTED'}"
+          class="badge rounded-pill text-bg-light border text-muted"
+          title="Compiled and run against the problem's test cases in a sandbox.">
+        Executed</span>
+</span>
+
+<!--/*
   Pagination for pages whose only query parameters are page and size.
 
   The problem list does not use this - it has filters to carry across, and losing them on

@@ -1,5 +1,6 @@
 package com.codearena.judge;
 
+import com.codearena.common.domain.JudgingMethod;
 import com.codearena.common.domain.Verdict;
 import com.codearena.common.event.SubmissionCreated;
 import com.codearena.common.event.VerdictAssigned;
@@ -59,9 +60,14 @@ public class JudgeService {
         this.testCaseSource = testCaseSource;
     }
 
+    /** What one attempt produced, and how. Paired because the verdict is not readable without it. */
+    private record JudgingRun(List<TestCaseOutcome> outcomes, JudgingMethod method) {
+    }
+
     public VerdictAssigned judge(SubmissionCreated submission) {
         long startedAt = System.nanoTime();
-        List<TestCaseOutcome> outcomes = executeOrSimulate(submission);
+        JudgingRun run = executeOrSimulate(submission);
+        List<TestCaseOutcome> outcomes = run.outcomes();
 
         // Ordered by index so "first failure" means the earliest case, not whichever thread
         // happened to finish first. Without this the reported failing case would vary between
@@ -87,9 +93,9 @@ public class JudgeService {
         // constraint is the worst case, not the average.
         int runtimeMs = outcomes.stream().mapToInt(TestCaseOutcome::runtimeMs).max().orElse(0);
 
-        log.info("Judged submission {} as {} ({}/{} cases, {} ms, wall {} ms)",
+        log.info("Judged submission {} as {} ({}/{} cases, {} ms, wall {} ms, {})",
                 submission.submissionId(), verdict, testsPassed, outcomes.size(), runtimeMs,
-                (System.nanoTime() - startedAt) / 1_000_000);
+                (System.nanoTime() - startedAt) / 1_000_000, run.method());
 
         return new VerdictAssigned(
                 submission.submissionId(),
@@ -100,7 +106,8 @@ public class JudgeService {
                 testsPassed,
                 outcomes.size(),
                 firstFailure == null ? null : firstFailure.index(),
-                clock.instant());
+                clock.instant(),
+                run.method());
     }
 
     /**
@@ -109,13 +116,16 @@ public class JudgeService {
      * <p>The fallback is not a nicety. Only some problems have test cases written, and a
      * submission to one that does not cannot be judged - but leaving it QUEUED for ever is a
      * worse answer than a simulated verdict, and refusing to start would take the whole worker
-     * down over one unprepared problem. So it degrades, loudly: the log says which happened, and
-     * the verdict itself carries no claim about how it was reached until that is threaded through
-     * the event.
+     * down over one unprepared problem.
+     *
+     * <p>So it degrades, and it says so. Which path ran travels on the event and ends up beside
+     * the verdict in the database, because a simulated {@code WA} and an earned one are otherwise
+     * identical to everyone downstream - and the reasonable assumption on seeing a verdict is the
+     * stronger of the two.
      */
-    private List<TestCaseOutcome> executeOrSimulate(SubmissionCreated submission) {
+    private JudgingRun executeOrSimulate(SubmissionCreated submission) {
         if (!properties.judgesForReal() || sandboxedEngine.isEmpty() || testCaseSource.isEmpty()) {
-            return runAllCases(submission);
+            return new JudgingRun(runAllCases(submission), JudgingMethod.SIMULATED);
         }
 
         List<JudgeTestCase> cases = testCaseSource.get().findFor(submission.problemSlug());
@@ -123,10 +133,11 @@ public class JudgeService {
             log.warn("No test cases for problem '{}'; simulating submission {} instead of "
                             + "executing it. Add cases for this problem to judge it for real.",
                     submission.problemSlug(), submission.submissionId());
-            return runAllCases(submission);
+            return new JudgingRun(runAllCases(submission), JudgingMethod.SIMULATED);
         }
 
-        return sandboxedEngine.get().run(submission, cases);
+        return new JudgingRun(sandboxedEngine.get().run(submission, cases),
+                JudgingMethod.EXECUTED);
     }
 
     private List<TestCaseOutcome> runAllCases(SubmissionCreated submission) {

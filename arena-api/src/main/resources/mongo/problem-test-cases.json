@@ -558,5 +558,1691 @@
         "sample": false
       }
     ]
+  },
+  {
+    "slug": "running-sum-of-array",
+    "cases": [
+      {
+        "index": 1,
+        "input": "4\n1 2 3 4",
+        "expectedOutput": "1 3 6 10",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "3\n1 -1 5",
+        "expectedOutput": "1 0 5",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "1\n0",
+        "expectedOutput": "0",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "5\n-1 -1 -1 -1 -1",
+        "expectedOutput": "-1 -2 -3 -4 -5",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "200\n10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000 10000",
+        "expectedOutput": "10000 20000 30000 40000 50000 60000 70000 80000 90000 100000 110000 120000 130000 140000 150000 160000 170000 180000 190000 200000 210000 220000 230000 240000 250000 260000 270000 280000 290000 300000 310000 320000 330000 340000 350000 360000 370000 380000 390000 400000 410000 420000 430000 440000 450000 460000 470000 480000 490000 500000 510000 520000 530000 540000 550000 560000 570000 580000 590000 600000 610000 620000 630000 640000 650000 660000 670000 680000 690000 700000 710000 720000 730000 740000 750000 760000 770000 780000 790000 800000 810000 820000 830000 840000 850000 860000 870000 880000 890000 900000 910000 920000 930000 940000 950000 960000 970000 980000 990000 1000000 1010000 1020000 1030000 1040000 1050000 1060000 1070000 1080000 1090000 1100000 1110000 1120000 1130000 1140000 1150000 1160000 1170000 1180000 1190000 1200000 1210000 1220000 1230000 1240000 1250000 1260000 1270000 1280000 1290000 1300000 1310000 1320000 1330000 1340000 1350000 1360000 1370000 1380000 1390000 1400000 1410000 1420000 1430000 1440000 1450000 1460000 1470000 1480000 1490000 1500000 1510000 1520000 1530000 1540000 1550000 1560000 1570000 1580000 1590000 1600000 1610000 1620000 1630000 1640000 1650000 1660000 1670000 1680000 1690000 1700000 1710000 1720000 1730000 1740000 1750000 1760000 1770000 1780000 1790000 1800000 1810000 1820000 1830000 1840000 1850000 1860000 1870000 1880000 1890000 1900000 1910000 1920000 1930000 1940000 1950000 1960000 1970000 1980000 1990000 2000000",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "31\n-8375 7803 6329 754 4465 -4683 5693 9704 -2983 -2394 -620 2049 110 -9527 -2505 2034 144 995 -2732 6272 -815 -1706 4044 8424 -7495 -5831 4892 -7068 -9084 -968 3421",
+        "expectedOutput": "-8375 -572 5757 6511 10976 6293 11986 21690 18707 16313 15693 17742 17852 8325 5820 7854 7998 8993 6261 12533 11718 10012 14056 22480 14985 9154 14046 6978 -2106 -3074 347",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "4\n7176 397 8556 7916",
+        "expectedOutput": "7176 7573 16129 24045",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "58\n3516 5475 7252 3899 -696 -262 -6624 -4510 4686 83 6542 2538 -5184 3959 -514 -3718 9238 1257 -1224 2182 388 -5994 -9736 -2667 2824 6852 -375 1710 2496 8631 -3459 -949 -9792 2848 -8746 -9115 8306 6181 5294 853 7484 -5963 -9056 -5790 -3746 1464 -6426 -2211 721 1001 -2883 8545 9090 8629 7661 -9524 -6271 -5779",
+        "expectedOutput": "3516 8991 16243 20142 19446 19184 12560 8050 12736 12819 19361 21899 16715 20674 20160 16442 25680 26937 25713 27895 28283 22289 12553 9886 12710 19562 19187 20897 23393 32024 28565 27616 17824 20672 11926 2811 11117 17298 22592 23445 30929 24966 15910 10120 6374 7838 1412 -799 -78 923 -1960 6585 15675 24304 31965 22441 16170 10391",
+        "sample": false
+      },
+      {
+        "index": 9,
+        "input": "193\n-9716 -8682 4815 4894 -4337 261 -5924 6296 1317 7361 -731 672 -4934 9840 -697 601 5476 -703 -9518 -9860 6080 -1846 5269 4595 -7835 -5236 -1124 1991 -2074 613 8598 -9363 6770 -4204 -8241 -3815 9672 -4613 -9328 -4240 -4388 8458 8979 -3451 -3880 -4075 -200 -9595 -4896 -617 3147 484 6401 8506 -1227 6864 -6189 -3944 -6601 -9653 9155 5132 -6299 -76 6947 6643 -2878 -1056 -6294 8404 -134 1654 -2689 -1122 3248 9325 3461 5573 -6020 1345 -9898 -552 -8138 4239 -8918 -2608 2258 -2844 3326 2834 -2380 6333 6079 7785 -1538 3750 -8171 -3978 -7177 287 -3795 -3667 -8434 -7787 1885 8384 -9303 -5543 3297 -1440 -3361 -5093 1183 -8246 -1788 -4574 -6663 4887 -4097 -2843 612 -1235 2957 3491 -3582 -8573 1438 -5411 -4657 2294 -6877 -3494 973 3577 -6505 -9417 -9561 2846 -9931 -3435 1935 2566 7769 -722 -1225 479 8804 579 -7306 -4921 -2491 9451 -8851 6020 7429 -6066 8405 4958 -8346 9393 -1405 -419 4631 -4983 -9025 -8488 9525 -6001 -5678 -5491 -9177 7856 7807 -272 7812 8749 -8031 -9664 8306 5215 7908 -931 2593 -3674 -3525 -5402 4460 -4088 2272 -3912 -4288 3222 9566",
+        "expectedOutput": "-9716 -18398 -13583 -8689 -13026 -12765 -18689 -12393 -11076 -3715 -4446 -3774 -8708 1132 435 1036 6512 5809 -3709 -13569 -7489 -9335 -4066 529 -7306 -12542 -13666 -11675 -13749 -13136 -4538 -13901 -7131 -11335 -19576 -23391 -13719 -18332 -27660 -31900 -36288 -27830 -18851 -22302 -26182 -30257 -30457 -40052 -44948 -45565 -42418 -41934 -35533 -27027 -28254 -21390 -27579 -31523 -38124 -47777 -38622 -33490 -39789 -39865 -32918 -26275 -29153 -30209 -36503 -28099 -28233 -26579 -29268 -30390 -27142 -17817 -14356 -8783 -14803 -13458 -23356 -23908 -32046 -27807 -36725 -39333 -37075 -39919 -36593 -33759 -36139 -29806 -23727 -15942 -17480 -13730 -21901 -25879 -33056 -32769 -36564 -40231 -48665 -56452 -54567 -46183 -55486 -61029 -57732 -59172 -62533 -67626 -66443 -74689 -76477 -81051 -87714 -82827 -86924 -89767 -89155 -90390 -87433 -83942 -87524 -96097 -94659 -100070 -104727 -102433 -109310 -112804 -111831 -108254 -114759 -124176 -133737 -130891 -140822 -144257 -142322 -139756 -131987 -132709 -133934 -133455 -124651 -124072 -131378 -136299 -138790 -129339 -138190 -132170 -124741 -130807 -122402 -117444 -125790 -116397 -117802 -118221 -113590 -118573 -127598 -136086 -126561 -132562 -138240 -143731 -152908 -145052 -137245 -137517 -129705 -120956 -128987 -138651 -130345 -125130 -117222 -118153 -115560 -119234 -122759 -128161 -123701 -127789 -125517 -129429 -133717 -130495 -120929",
+        "sample": false
+      }
+    ]
+  },
+  {
+    "slug": "count-even-digits",
+    "cases": [
+      {
+        "index": 1,
+        "input": "3\n248 13 0",
+        "expectedOutput": "3 0 1",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "2\n-24 1000000000",
+        "expectedOutput": "2 9",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "1\n1",
+        "expectedOutput": "0",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "1\n-0",
+        "expectedOutput": "1",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "4\n2 4 6 8",
+        "expectedOutput": "1 1 1 1",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "12\n354906469 -874387193 -116653924 -435629910 -982950476 -703655915 -425213564 -71708526 493962388 979574281 -260517261 -96507280",
+        "expectedOutput": "5 3 4 4 5 2 5 4 5 3 5 5",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "13\n102060089 -125044983 46108630 136913772 -394792136 698154972 -453906383 -218652366 -78011620 -93309943 948833848 -867089845 44176237",
+        "expectedOutput": "7 5 6 2 3 4 4 6 5 2 6 6 4",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "47\n-523555407 642342119 -925495274 920243334 469503620 -927168414 517946939 -6475871 179216323 511485651 351617132 -236569002 34208098 -9892919 -137154512 -937597776 349680617 -348212078 129860981 -449420771 837921194 744784351 90640691 -70937546 929050418 -418882234 101740737 -315990513 -880311651 -548349010 209093034 428129379 892261904 624264001 89954179 -227294764 -345290249 -440486784 -289003582 615518332 -485775118 570773916 57947700 322628249 959879328 90659745 -717030056",
+        "expectedOutput": "3 5 4 5 6 5 2 3 3 3 2 6 6 2 2 1 5 6 5 5 3 4 5 3 5 7 3 1 4 5 5 4 6 8 2 6 5 8 6 3 3 2 3 7 3 3 4",
+        "sample": false
+      },
+      {
+        "index": 9,
+        "input": "26\n-410914059 -311156154 -43455392 385951413 -943795824 347544285 -178763413 -486599432 -932135963 -687744081 -426203354 12396450 869318791 -725719726 698118522 327358742 295090277 829647970 45629829 968571213 978677105 654508693 -777815513 -883015125 -525909091 -477732288",
+        "expectedOutput": "4 2 3 2 4 5 3 5 2 6 6 4 3 3 5 4 4 5 5 3 3 5 1 4 3 5",
+        "sample": false
+      }
+    ]
+  },
+  {
+    "slug": "anagram-groups",
+    "cases": [
+      {
+        "index": 1,
+        "input": "6\neat\ntea\ntan\nate\nnat\nbat",
+        "expectedOutput": "3",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "3\na\na\na",
+        "expectedOutput": "1",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "1\nz",
+        "expectedOutput": "1",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "3\nab\nba\nabc",
+        "expectedOutput": "2",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "42\nadcaed\nb\naac\na\nddbeb\ndb\ndcdcb\na\nadaa\ndebea\nde\ne\nddbe\naecaac\ne\nccb\ncab\neacdba\nacadde\nddaec\nadead\nc\nc\nd\need\nbd\ncccdbc\nddacd\neeaeb\nbabea\ncc\ncdbbe\nbbedd\ncbceaa\nc\nbba\neddbe\need\nacbcad\nebee\nbea\nbccac",
+        "expectedOutput": "34",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "37\nccdcbe\ncdebb\necbeb\ndaca\na\nbbbca\nedbc\naecdac\nebacee\ndeaa\ndbcc\ncde\necd\nb\nccdaed\necee\ndbcec\nebb\ndcccda\nbcac\ncb\ndaedcc\nbeebe\ncc\neec\ndbbc\ncda\ndbccb\ne\nd\nb\nabbeb\nbdaea\nceed\nbbbee\nedbddd\nabd",
+        "expectedOutput": "34",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "28\naddabb\nceb\nd\nee\naecd\ncbbbb\ne\nece\ndacba\nba\nddb\ncaec\ndaa\ndecc\nadadca\ncedbac\nead\nd\ndbdda\nea\nedaab\nb\needbdb\neacdac\neabedb\nabeaa\ned\ne",
+        "expectedOutput": "26",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "20\nbd\nbace\nddb\nd\neeeaea\ncca\nbdcaec\nb\nca\nedcc\nebbeea\nee\nadbd\naae\naaea\ndae\nddede\nec\ncbcede\ncc",
+        "expectedOutput": "20",
+        "sample": false
+      }
+    ]
+  },
+  {
+    "slug": "island-counter",
+    "cases": [
+      {
+        "index": 1,
+        "input": "4 5\n11000\n11000\n00100\n00011",
+        "expectedOutput": "3",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "2 2\n10\n01",
+        "expectedOutput": "2",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "1 1\n0",
+        "expectedOutput": "0",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "1 1\n1",
+        "expectedOutput": "1",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "3 3\n111\n111\n111",
+        "expectedOutput": "1",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "3 3\n101\n010\n101",
+        "expectedOutput": "5",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "10 9\n000110110\n100110110\n101011100\n100101110\n011110001\n010001001\n000100000\n000001100\n110110001\n010110100",
+        "expectedOutput": "12",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "4 4\n1001\n0010\n0001\n0110",
+        "expectedOutput": "5",
+        "sample": false
+      },
+      {
+        "index": 9,
+        "input": "2 6\n000011\n101010",
+        "expectedOutput": "3",
+        "sample": false
+      },
+      {
+        "index": 10,
+        "input": "9 1\n1\n1\n0\n0\n0\n0\n0\n1\n1",
+        "expectedOutput": "2",
+        "sample": false
+      }
+    ]
+  },
+  {
+    "slug": "number-of-connected-components",
+    "cases": [
+      {
+        "index": 1,
+        "input": "5 3\n1 2\n2 3\n4 5",
+        "expectedOutput": "2",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "3 0",
+        "expectedOutput": "3",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "1 0",
+        "expectedOutput": "1",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "2 3\n1 2\n1 2\n1 1",
+        "expectedOutput": "1",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "12 10\n3 7\n4 7\n7 9\n6 2\n2 12\n3 9\n6 7\n3 2\n1 2\n12 2",
+        "expectedOutput": "5",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "29 5\n15 4\n7 16\n12 7\n23 1\n5 23",
+        "expectedOutput": "24",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "24 29\n4 7\n20 22\n24 3\n4 3\n22 1\n16 12\n3 7\n10 14\n4 5\n2 4\n23 24\n6 4\n9 6\n4 15\n3 5\n23 11\n19 4\n3 14\n10 13\n19 19\n5 7\n24 19\n3 7\n12 5\n20 3\n6 5\n10 19\n5 2\n10 17",
+        "expectedOutput": "4",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "15 32\n14 11\n10 10\n8 11\n5 10\n11 1\n13 6\n14 7\n8 4\n6 8\n2 7\n9 10\n11 10\n2 3\n1 11\n6 2\n8 6\n1 14\n8 13\n1 11\n12 12\n7 2\n11 2\n3 10\n14 7\n12 1\n9 13\n12 4\n4 14\n9 13\n3 8\n14 4\n13 14",
+        "expectedOutput": "2",
+        "sample": false
+      }
+    ]
+  },
+  {
+    "slug": "rotate-matrix-in-place",
+    "cases": [
+      {
+        "index": 1,
+        "input": "3\n1 2 3\n4 5 6\n7 8 9",
+        "expectedOutput": "7 4 1\n8 5 2\n9 6 3",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "1\n42",
+        "expectedOutput": "42",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "2\n1 2\n3 4",
+        "expectedOutput": "3 1\n4 2",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "2\n-1 -2\n-3 -4",
+        "expectedOutput": "-3 -1\n-4 -2",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "5\n502 563 -176 830 -136\n131 80 -685 12 315\n71 669 -576 -158 -798\n-212 777 -928 -770 -792\n376 -207 876 -184 620",
+        "expectedOutput": "376 -212 71 131 502\n-207 777 669 80 563\n876 -928 -576 -685 -176\n-184 -770 -158 12 830\n620 -792 -798 315 -136",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "8\n682 539 -690 972 -333 473 -703 57\n447 -73 508 38 -631 148 -461 80\n977 -665 -816 -128 -770 719 604 988\n689 -477 -139 -768 603 111 -537 496\n-363 268 -918 -159 -219 -374 34 -955\n898 960 96 -563 296 -837 -898 586\n607 -553 -498 54 664 996 241 628\n-528 -984 -385 -675 756 -187 611 319",
+        "expectedOutput": "-528 607 898 -363 689 977 447 682\n-984 -553 960 268 -477 -665 -73 539\n-385 -498 96 -918 -139 -816 508 -690\n-675 54 -563 -159 -768 -128 38 972\n756 664 296 -219 603 -770 -631 -333\n-187 996 -837 -374 111 719 148 473\n611 241 -898 34 -537 604 -461 -703\n319 628 586 -955 496 988 80 57",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "7\n-322 -781 -284 313 750 -293 -969\n-626 658 -355 641 -426 -662 -692\n-858 686 -109 845 -149 -813 914\n432 753 -953 -180 -911 -444 486\n-103 -70 149 -151 86 372 569\n-399 -638 -112 273 -23 -967 -807\n-594 -912 -570 -233 -244 -873 14",
+        "expectedOutput": "-594 -399 -103 432 -858 -626 -322\n-912 -638 -70 753 686 658 -781\n-570 -112 149 -953 -109 -355 -284\n-233 273 -151 -180 845 641 313\n-244 -23 86 -911 -149 -426 750\n-873 -967 372 -444 -813 -662 -293\n14 -807 569 486 914 -692 -969",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "6\n-201 187 -703 -276 807 864\n-487 62 77 218 -1000 631\n55 750 336 -476 519 -85\n366 -716 -395 291 -612 -975\n-606 -18 112 -467 718 947\n628 -197 -587 -888 88 -589",
+        "expectedOutput": "628 -606 366 55 -487 -201\n-197 -18 -716 750 62 187\n-587 112 -395 336 77 -703\n-888 -467 291 -476 218 -276\n88 718 -612 519 -1000 807\n-589 947 -975 -85 631 864",
+        "sample": false
+      }
+    ]
+  },
+  {
+    "slug": "modular-exponentiation",
+    "cases": [
+      {
+        "index": 1,
+        "input": "3\n2 10 1000\n3 0 7\n5 3 1",
+        "expectedOutput": "24\n1\n0",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "1\n0 0 5",
+        "expectedOutput": "1",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "1\n1000000000000000000 1000000000000000000 999999937",
+        "expectedOutput": "202779993",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "2\n0 5 7\n7 1 7",
+        "expectedOutput": "0\n0",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "3\n497867218218704084 475200362352129527 591701754\n621938298287681146 179909764940284247 76939173\n808579427460919696 547743374525792626 480113269",
+        "expectedOutput": "532052420\n74498995\n189768007",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "2\n118187780785882333 658608711372508052 910197923\n159932500989167778 308668420737152775 226424411",
+        "expectedOutput": "412258619\n32079755",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "2\n130857254390671283 516892412180499552 174136870\n152739433271224112 444705034592555052 206081535",
+        "expectedOutput": "136877481\n99502021",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "1\n198332849892955002 492781387306788509 924605546",
+        "expectedOutput": "221289956",
+        "sample": false
+      }
+    ]
+  },
+  {
+    "slug": "count-distinct-prime-factors",
+    "cases": [
+      {
+        "index": 1,
+        "input": "4\n12 1 97 360",
+        "expectedOutput": "2 0 1 3",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "2\n1000000 999983",
+        "expectedOutput": "2 1",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "1\n1",
+        "expectedOutput": "0",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "3\n2 4 8",
+        "expectedOutput": "1 1 1",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "1\n510510",
+        "expectedOutput": "7",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "2\n914449 277400",
+        "expectedOutput": "1 4",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "59\n828129 435458 494959 35397 128005 752139 726531 873526 606752 125848 980041 593937 327336 412797 23097 336489 155062 357045 765748 492004 417210 147725 536432 282017 560622 341739 289380 163608 68416 677786 466283 327691 422343 908577 176688 171857 793557 532380 571912 617162 244516 310677 972617 837220 967937 287104 690057 617523 644907 350240 65206 262479 881176 984960 838135 3668 608614 715840 886169",
+        "expectedOutput": "2 3 1 3 2 3 3 3 3 2 2 2 4 4 2 2 4 4 3 2 4 3 3 2 4 2 6 4 2 2 1 3 3 2 3 2 3 5 4 4 2 3 2 4 1 2 2 3 3 4 2 4 3 4 2 3 3 3 2",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "38\n438713 252653 637118 171391 664930 919598 258852 351056 176120 45373 920097 182443 124879 589294 499950 834761 490806 204404 345808 975006 326484 870680 396248 224208 759319 192248 720951 344292 97975 590840 444228 490966 843090 671238 220031 275042 580434 901237",
+        "expectedOutput": "2 2 2 2 5 4 5 3 5 2 2 1 2 2 5 1 4 3 2 3 3 3 2 3 2 3 4 4 2 3 3 3 5 4 3 3 3 2",
+        "sample": false
+      },
+      {
+        "index": 9,
+        "input": "21\n49575 421432 614736 152996 76335 555234 732207 959649 111415 847098 932225 664640 832781 745788 219358 506092 706988 401611 148477 989122 780174",
+        "expectedOutput": "3 3 3 3 4 4 4 2 2 4 3 4 3 4 3 3 2 2 2 2 4",
+        "sample": false
+      }
+    ]
+  },
+  {
+    "slug": "sliding-window-maximum",
+    "cases": [
+      {
+        "index": 1,
+        "input": "8 3\n1 3 -1 -3 5 3 6 7",
+        "expectedOutput": "3 3 5 5 6 7",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "4 4\n4 3 2 1",
+        "expectedOutput": "4",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "1 1\n5",
+        "expectedOutput": "5",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "5 1\n3 1 4 1 5",
+        "expectedOutput": "3 1 4 1 5",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "5 2\n-5 -4 -3 -2 -1",
+        "expectedOutput": "-4 -3 -2 -1",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "29 13\n-340 20 -25 -356 534 40 -190 -417 -925 351 271 -126 -824 918 -336 827 135 219 823 -631 -201 -995 852 -297 -356 -50 -412 -890 877",
+        "expectedOutput": "534 918 918 918 918 918 918 918 918 918 918 918 918 918 852 852 877",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "8 6\n-296 14 -865 128 855 -848 694 868",
+        "expectedOutput": "855 855 868",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "54 12\n615 501 -257 922 784 547 -949 864 -14 -754 -533 -34 817 269 -394 -386 375 -107 -820 -741 644 -416 641 104 611 174 100 -501 -603 746 -815 158 302 160 -760 504 781 -198 733 10 -138 836 560 819 -422 -701 293 -724 -506 -724 -224 221 626 383",
+        "expectedOutput": "922 922 922 922 864 864 864 864 817 817 817 817 817 644 644 644 644 644 746 746 746 746 746 746 746 781 781 781 781 781 836 836 836 836 836 836 836 836 836 836 836 836 819",
+        "sample": false
+      },
+      {
+        "index": 9,
+        "input": "23 22\n998 806 428 172 570 -156 459 592 352 -43 -410 -361 -740 -567 -209 507 -676 -379 334 -884 534 987 -303",
+        "expectedOutput": "998 987",
+        "sample": false
+      }
+    ]
+  },
+  {
+    "slug": "kth-smallest-in-a-stream",
+    "cases": [
+      {
+        "index": 1,
+        "input": "5 2\n5 1 3 2 4",
+        "expectedOutput": "-1 5 3 2 2",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "3 1\n7 3 9",
+        "expectedOutput": "7 3 3",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "1 1\n0",
+        "expectedOutput": "0",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "3 5\n1 2 3",
+        "expectedOutput": "-1 -1 -1",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "4 2\n5 5 5 5",
+        "expectedOutput": "-1 5 5 5",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "43 18\n-781 -211 118 -420 -821 -805 0 601 -770 23 -545 -439 -444 467 450 567 44 -750 -240 830 491 472 348 879 960 411 -718 473 -775 -6 877 354 205 -258 -420 -604 844 -36 -464 -471 -50 -403 564",
+        "expectedOutput": "-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 601 567 567 491 472 467 467 467 450 411 411 348 118 118 118 118 44 23 0 0 -6 -36 -211 -211 -240 -240",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "10 5\n337 -871 -133 617 724 -829 -579 -117 58 -775",
+        "expectedOutput": "-1 -1 -1 -1 724 617 337 -117 -117 -133",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "8 2\n-298 -234 -286 14 607 -131 -810 899",
+        "expectedOutput": "-1 -234 -286 -286 -286 -286 -298 -298",
+        "sample": false
+      },
+      {
+        "index": 9,
+        "input": "59 20\n621 -614 964 432 796 -402 117 -291 580 -934 713 -592 659 -990 -754 771 358 -466 656 -102 337 -900 937 -784 905 316 -942 732 -979 -987 238 -904 -123 164 -472 450 864 -532 228 701 157 -963 -910 87 861 -349 -325 334 -685 -190 -299 -641 -289 709 -174 425 -978 -291 -623",
+        "expectedOutput": "-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 964 796 771 771 713 713 659 656 656 621 580 432 358 337 316 238 238 238 164 164 164 157 117 -102 -102 -102 -123 -291 -291 -325 -325 -325 -349 -349 -349 -349 -349 -402 -402 -466",
+        "sample": false
+      }
+    ]
+  },
+  {
+    "slug": "coin-change-minimum",
+    "cases": [
+      {
+        "index": 1,
+        "input": "3 11\n1 2 5",
+        "expectedOutput": "3",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "1 3\n2",
+        "expectedOutput": "-1",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "3 6\n1 3 4",
+        "expectedOutput": "2",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "1 1\n1",
+        "expectedOutput": "1",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "2 9973\n7 11",
+        "expectedOutput": "907",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "6 400\n7 3 1 1 22 10",
+        "expectedOutput": "20",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "6 316\n21 40 26 37 7 2",
+        "expectedOutput": "9",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "2 272\n31 45",
+        "expectedOutput": "-1",
+        "sample": false
+      },
+      {
+        "index": 9,
+        "input": "2 256\n30 13",
+        "expectedOutput": "-1",
+        "sample": false
+      }
+    ]
+  },
+  {
+    "slug": "subsets-and-sums",
+    "cases": [
+      {
+        "index": 1,
+        "input": "3\n1 2 3",
+        "expectedOutput": "7",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "2\n1 1",
+        "expectedOutput": "3",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "1\n1000",
+        "expectedOutput": "2",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "5\n1 1 1 1 1",
+        "expectedOutput": "6",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "12\n1 2 4 8 16 32 64 128 256 512 1024 2048",
+        "expectedOutput": "4096",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "11\n16 45 42 52 55 7 39 6 20 15 20",
+        "expectedOutput": "278",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "11\n16 36 31 45 31 59 52 40 32 6 52",
+        "expectedOutput": "313",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "10\n8 21 25 18 38 50 40 30 60 6",
+        "expectedOutput": "251",
+        "sample": false
+      },
+      {
+        "index": 9,
+        "input": "2\n26 11",
+        "expectedOutput": "4",
+        "sample": false
+      }
+    ]
+  },
+  {
+    "slug": "palindromic-substrings-count",
+    "cases": [
+      {
+        "index": 1,
+        "input": "abc",
+        "expectedOutput": "3",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "aaa",
+        "expectedOutput": "6",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "a",
+        "expectedOutput": "1",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "abababababababababababababababababababababababababababababababababababababababababababababababababababababababababababab",
+        "expectedOutput": "3660",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "racecar",
+        "expectedOutput": "10",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "accaacacbaaabaacaaaaaababbbacbccacbbbcaabaabbaccaacacacbaabacbbbcbbcaaabbbaabbacaaaabcbaabbabcbabcb",
+        "expectedOutput": "206",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "abaaaaaabbcbabaacbcabaacccaaaaccbbbbacbbaabbaaaa",
+        "expectedOutput": "107",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "cacbcaacbcacbaccbcacacaaccbcbacacbacabccaaccabcccccabbbaaacbbbabcb",
+        "expectedOutput": "125",
+        "sample": false
+      },
+      {
+        "index": 9,
+        "input": "bcbbbbacbccaaaccaaaaabacbbbbcacaacacbcacccabccabbabbbcababbccccbbcb",
+        "expectedOutput": "143",
+        "sample": false
+      }
+    ]
+  },
+  {
+    "slug": "shortest-path-in-a-grid",
+    "cases": [
+      {
+        "index": 1,
+        "input": "3 3\n...\n.#.\n...",
+        "expectedOutput": "4",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "2 2\n.#\n#.",
+        "expectedOutput": "-1",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "1 1\n.",
+        "expectedOutput": "0",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "1 1\n#",
+        "expectedOutput": "-1",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "1 5\n.....",
+        "expectedOutput": "4",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "5 6\n.#....\n......\n#.#.##\n......\n...##.",
+        "expectedOutput": "9",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "8 7\n..#.#..\n.......\n.#...##\n#......\n.......\n.....#.\n#.....#\n.#.#.#.",
+        "expectedOutput": "-1",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "5 6\n##..##\n...#.#\n....##\n.#....\n.##...",
+        "expectedOutput": "-1",
+        "sample": false
+      },
+      {
+        "index": 9,
+        "input": "5 3\n#..\n#.#\n...\n.#.\n...",
+        "expectedOutput": "-1",
+        "sample": false
+      }
+    ]
+  },
+  {
+    "slug": "dijkstra-on-a-weighted-grid",
+    "cases": [
+      {
+        "index": 1,
+        "input": "3 3\n123\n456\n789",
+        "expectedOutput": "20",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "1 1\n7",
+        "expectedOutput": "0",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "2 2\n00\n00",
+        "expectedOutput": "0",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "1 4\n9999",
+        "expectedOutput": "27",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "1 5\n91436",
+        "expectedOutput": "14",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "1 1\n1",
+        "expectedOutput": "0",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "6 5\n38843\n52057\n02811\n61555\n73713\n93468",
+        "expectedOutput": "30",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "7 3\n232\n097\n345\n222\n684\n691\n453",
+        "expectedOutput": "17",
+        "sample": false
+      }
+    ]
+  },
+  {
+    "slug": "word-ladder-length",
+    "cases": [
+      {
+        "index": 1,
+        "input": "hit cog\n6\nhot\ndot\ndog\nlot\nlog\ncog",
+        "expectedOutput": "5",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "hit cog\n5\nhot\ndot\ndog\nlot\nlog",
+        "expectedOutput": "0",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "a c\n2\nb\nc",
+        "expectedOutput": "2",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "ab ab\n1\nab",
+        "expectedOutput": "1",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "ca ca\n8\naa\nab\nac\nba\nbb\nbc\nca\ncc",
+        "expectedOutput": "1",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "bc bc\n6\naa\nac\nbc\nca\ncb\ncc",
+        "expectedOutput": "1",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "cb cb\n7\naa\nab\nac\nba\nca\ncb\ncc",
+        "expectedOutput": "1",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "aac cac\n10\naaa\naba\nabc\nacb\nacc\nbcc\ncaa\ncab\ncac\nccc",
+        "expectedOutput": "2",
+        "sample": false
+      }
+    ]
+  },
+  {
+    "slug": "course-schedule-order",
+    "cases": [
+      {
+        "index": 1,
+        "input": "4 3\n1 2\n1 3\n3 4",
+        "expectedOutput": "1 2 3 4",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "2 2\n1 2\n2 1",
+        "expectedOutput": "IMPOSSIBLE",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "3 0",
+        "expectedOutput": "1 2 3",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "1 0",
+        "expectedOutput": "1",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "3 3\n1 2\n2 3\n3 1",
+        "expectedOutput": "IMPOSSIBLE",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "11 13\n1 6\n2 8\n2 10\n3 4\n4 5\n4 6\n4 10\n5 6\n5 7\n6 8\n7 8\n7 10\n9 11",
+        "expectedOutput": "1 2 3 4 5 6 7 8 9 10 11",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "7 5\n1 2\n1 3\n1 5\n1 6\n2 7",
+        "expectedOutput": "1 2 3 4 5 6 7",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "5 3\n1 3\n2 5\n3 5",
+        "expectedOutput": "1 2 3 4 5",
+        "sample": false
+      },
+      {
+        "index": 9,
+        "input": "12 14\n1 6\n1 12\n3 5\n3 7\n3 8\n3 9\n3 12\n4 7\n5 10\n5 12\n6 9\n7 12\n8 10\n10 12",
+        "expectedOutput": "1 2 3 4 5 6 7 8 9 10 11 12",
+        "sample": false
+      }
+    ]
+  },
+  {
+    "slug": "minimum-spanning-network",
+    "cases": [
+      {
+        "index": 1,
+        "input": "4 5\n1 2 1\n2 3 2\n3 4 3\n1 4 10\n1 3 4",
+        "expectedOutput": "6",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "3 1\n1 2 5",
+        "expectedOutput": "-1",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "1 0",
+        "expectedOutput": "0",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "2 2\n1 2 5\n1 2 3",
+        "expectedOutput": "3",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "3 3\n1 2 1000000000\n2 3 1000000000\n1 3 1000000000",
+        "expectedOutput": "2000000000",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "3 0\n",
+        "expectedOutput": "-1",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "3 2\n1 2 79\n1 3 64",
+        "expectedOutput": "143",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "7 12\n1 3 91\n1 4 34\n1 6 59\n2 3 60\n2 5 2\n2 6 87\n3 4 20\n3 5 38\n3 7 92\n4 5 2\n5 6 48\n5 7 42",
+        "expectedOutput": "148",
+        "sample": false
+      },
+      {
+        "index": 9,
+        "input": "9 16\n1 2 98\n1 5 82\n1 9 71\n2 3 69\n2 4 81\n2 5 93\n2 7 56\n3 4 65\n3 6 90\n3 7 80\n4 5 1\n4 6 51\n4 9 27\n5 6 38\n6 9 73\n8 9 84",
+        "expectedOutput": "411",
+        "sample": false
+      }
+    ]
+  },
+  {
+    "slug": "max-flow-bottleneck",
+    "cases": [
+      {
+        "index": 1,
+        "input": "4 4\n1 2 5\n2 4 3\n1 3 2\n3 4 8",
+        "expectedOutput": "3",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "2 0",
+        "expectedOutput": "-1",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "2 1\n1 2 1000000000",
+        "expectedOutput": "1000000000",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "3 2\n1 2 5\n2 3 5",
+        "expectedOutput": "5",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "4 5\n1 2 320\n1 3 623\n1 4 202\n2 4 583\n3 4 850",
+        "expectedOutput": "623",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "12 36\n1 3 531\n1 7 92\n1 8 615\n1 11 750\n1 12 328\n2 4 52\n2 5 513\n2 8 754\n2 9 849\n2 11 642\n2 12 340\n3 4 106\n3 6 32\n3 8 6\n3 10 930\n4 5 13\n4 7 565\n4 9 935\n4 11 546\n5 6 61\n5 7 403\n5 8 532\n5 10 342\n5 11 293\n6 7 762\n6 10 56\n6 11 870\n7 9 984\n7 10 596\n8 9 3\n8 10 429\n8 11 296\n8 12 175\n9 11 307\n9 12 452\n11 12 964",
+        "expectedOutput": "750",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "7 14\n1 2 125\n1 3 288\n1 5 620\n2 5 268\n2 6 780\n3 4 546\n3 5 821\n3 6 414\n3 7 156\n4 6 94\n4 7 145\n5 6 387\n5 7 95\n6 7 138",
+        "expectedOutput": "156",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "12 34\n1 2 417\n1 4 107\n1 7 83\n1 8 936\n1 9 283\n1 10 958\n2 4 363\n2 5 497\n2 7 125\n2 8 39\n2 9 848\n2 11 807\n3 4 313\n3 5 567\n3 6 598\n3 11 88\n3 12 875\n4 5 930\n4 8 566\n4 9 151\n4 11 423\n4 12 49\n5 6 705\n5 8 768\n5 12 511\n6 7 495\n6 10 816\n6 11 986\n7 9 886\n7 10 194\n8 9 937\n8 12 848\n9 10 80\n9 11 562",
+        "expectedOutput": "848",
+        "sample": false
+      }
+    ]
+  },
+  {
+    "slug": "matrix-chain-multiplication",
+    "cases": [
+      {
+        "index": 1,
+        "input": "3\n10 30 5 60",
+        "expectedOutput": "4500",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "1\n5 7",
+        "expectedOutput": "0",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "2\n2 3 4",
+        "expectedOutput": "24",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "4\n1 1 1 1 1",
+        "expectedOutput": "3",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "9\n107 177 131 110 26 101 41 95 99 38",
+        "expectedOutput": "2126930",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "12\n198 21 39 92 160 16 23 57 56 181 123 189 55",
+        "expectedOutput": "1675504",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "7\n94 97 7 121 110 184 1 147",
+        "expectedOutput": "58012",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "7\n149 97 131 163 20 155 101 161",
+        "expectedOutput": "2088360",
+        "sample": false
+      }
+    ]
+  },
+  {
+    "slug": "knapsack-with-bitmask",
+    "cases": [
+      {
+        "index": 1,
+        "input": "3 5\n2 3\n3 4\n4 5",
+        "expectedOutput": "7",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "2 1\n5 100\n6 200",
+        "expectedOutput": "0",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "1 1000000000\n1000000000 1000000000",
+        "expectedOutput": "1000000000",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "3 1000000000\n1 1\n1 1\n1 1",
+        "expectedOutput": "3",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "8 10\n5 53\n25 34\n29 75\n4 15\n8 91\n18 38\n16 43\n31 93",
+        "expectedOutput": "91",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "8 99\n15 22\n17 55\n4 39\n45 7\n10 72\n6 4\n3 89\n27 86",
+        "expectedOutput": "367",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "4 10\n9 99\n9 23\n32 1\n44 59",
+        "expectedOutput": "99",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "5 99\n48 63\n2 95\n37 45\n49 80\n34 19",
+        "expectedOutput": "238",
+        "sample": false
+      }
+    ]
+  },
+  {
+    "slug": "range-sum-queries-mutable",
+    "cases": [
+      {
+        "index": 1,
+        "input": "5 3\n1 2 3 4 5\n2 1 5\n1 3 10\n2 2 4",
+        "expectedOutput": "15\n16",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "1 1\n7\n2 1 1",
+        "expectedOutput": "7",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "3 4\n1 1 1\n1 2 5\n2 1 3\n1 2 9\n2 1 3",
+        "expectedOutput": "7\n11",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "3 1\n1000000000 1000000000 1000000000\n2 1 3",
+        "expectedOutput": "3000000000",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "12 2\n-81 36 -13 68 87 -73 -79 0 40 -53 -36 64\n2 9 12\n1 5 -76",
+        "expectedOutput": "15",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "2 9\n-75 -99\n1 2 -68\n2 2 2\n1 2 39\n2 1 1\n2 2 2\n1 1 -59\n1 1 -58\n1 1 -75\n2 1 1",
+        "expectedOutput": "-68\n-75\n39\n-75",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "7 7\n7 -20 35 71 100 47 -78\n1 1 -81\n1 3 -47\n1 7 -8\n1 5 -80\n1 3 -89\n1 1 -65\n2 1 7",
+        "expectedOutput": "-144",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "5 3\n75 92 -63 95 -97\n2 5 5\n1 5 67\n1 1 89",
+        "expectedOutput": "-97",
+        "sample": false
+      }
+    ]
+  },
+  {
+    "slug": "segment-tree-with-lazy-propagation",
+    "cases": [
+      {
+        "index": 1,
+        "input": "5 3\n1 2 3 4 5\n1 2 4 10\n2 1 5\n2 3 3",
+        "expectedOutput": "45\n13",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "3 2\n0 0 0\n1 1 3 5\n2 1 3",
+        "expectedOutput": "15",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "4 3\n1 1 1 1\n1 1 4 -1\n1 1 4 -1\n2 1 4",
+        "expectedOutput": "-4",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "1 2\n5\n1 1 1 7\n2 1 1",
+        "expectedOutput": "12",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "6 10\n75 12 86 -18 -46 14\n2 5 6\n1 1 2 -50\n2 6 6\n2 1 4\n2 5 5\n2 1 5\n2 2 4\n2 5 6\n2 5 5\n1 4 4 -40",
+        "expectedOutput": "-32\n14\n55\n-46\n9\n30\n-32\n-46",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "12 5\n38 -55 -45 86 86 -76 43 -49 1 48 -76 -54\n2 7 11\n2 6 11\n1 9 11 32\n1 12 12 12\n2 8 8",
+        "expectedOutput": "-33\n-109\n-49",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "6 1\n-88 54 -42 -75 -56 -58\n2 4 4",
+        "expectedOutput": "-75",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "7 8\n-80 0 79 -19 -68 41 -63\n1 2 3 -30\n1 7 7 1\n1 6 6 -29\n1 2 7 -27\n2 4 7\n2 4 7\n1 2 4 1\n1 6 7 18",
+        "expectedOutput": "-245\n-245",
+        "sample": false
+      }
+    ]
+  },
+  {
+    "slug": "lowest-common-ancestor-queries",
+    "cases": [
+      {
+        "index": 1,
+        "input": "5 3\n1 1 2 2\n4 5\n4 3\n2 4",
+        "expectedOutput": "2\n1\n2",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "2 1\n1\n1 2",
+        "expectedOutput": "1",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "1 1\n\n1 1",
+        "expectedOutput": "1",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "4 1\n1 2 3\n4 4",
+        "expectedOutput": "4",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "2 5\n1\n2 2\n1 2\n1 1\n1 1\n1 2",
+        "expectedOutput": "2\n1\n1\n1\n1",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "10 1\n1 2 3 1 2 1 4 8 8\n1 9",
+        "expectedOutput": "1",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "12 1\n1 2 3 3 3 4 1 1 7 2 2\n9 11",
+        "expectedOutput": "1",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "4 1\n1 2 2\n1 2",
+        "expectedOutput": "1",
+        "sample": false
+      }
+    ]
+  },
+  {
+    "slug": "binary-lifting-ancestors",
+    "cases": [
+      {
+        "index": 1,
+        "input": "5 3\n1 1 2 2\n4 1\n4 2\n4 3",
+        "expectedOutput": "2\n1\n-1",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "2 1\n1\n2 1000000000",
+        "expectedOutput": "-1",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "1 1\n\n1 1",
+        "expectedOutput": "-1",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "4 2\n1 2 3\n4 3\n4 4",
+        "expectedOutput": "1\n-1",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "3 4\n1 1\n3 3\n1 5\n1 1\n1 4",
+        "expectedOutput": "-1\n-1\n-1\n-1",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "3 5\n1 2\n2 3\n2 3\n1 3\n2 2\n3 2",
+        "expectedOutput": "-1\n-1\n-1\n-1\n1",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "5 3\n1 2 2 4\n4 1\n2 6\n1 2",
+        "expectedOutput": "2\n-1\n-1",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "11 3\n1 1 2 3 3 5 7 4 8 5\n6 3\n7 6\n9 12",
+        "expectedOutput": "-1\n-1\n-1",
+        "sample": false
+      }
+    ]
+  },
+  {
+    "slug": "trie-autocomplete",
+    "cases": [
+      {
+        "index": 1,
+        "input": "4 3\napple\napp\napply\nbanana\napp\nappl\nb",
+        "expectedOutput": "3\n2\n1",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "1 1\nabc\nabcd",
+        "expectedOutput": "0",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "2 1\nab\nab\nab",
+        "expectedOutput": "2",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "1 1\na\na",
+        "expectedOutput": "1",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "3 2\nab\naab\na\naab\nabbb",
+        "expectedOutput": "1\n0",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "12 1\nbba\nba\nbbab\nababb\nabaab\naa\nbb\naaaa\naaa\naa\nb\nb\nbaab",
+        "expectedOutput": "0",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "7 6\naa\nb\nbbb\nabbaa\nbaaba\nb\naaabb\nbaa\naaab\nab\nab\na\nba",
+        "expectedOutput": "1\n1\n1\n1\n3\n1",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "2 5\nbaab\na\naaba\nbbb\na\naa\nb",
+        "expectedOutput": "0\n0\n1\n0\n1",
+        "sample": false
+      }
+    ]
+  },
+  {
+    "slug": "suffix-automaton-substrings",
+    "cases": [
+      {
+        "index": 1,
+        "input": "abc",
+        "expectedOutput": "6",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "aaa",
+        "expectedOutput": "3",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "a",
+        "expectedOutput": "1",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "abababababababababababababababababababababababababababababababababababababababab",
+        "expectedOutput": "159",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "abcdefghij",
+        "expectedOutput": "55",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "baabcabacbbccbcabbccbbaaacbaaabaccbcabaabcbcabcabacaabbbcbcabaabcbc",
+        "expectedOutput": "2046",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "ccccacbabbccccbbbbbbaabbbcbaacabbcbbbbcbbccabaaaabcacbcaaaccabaaaaba",
+        "expectedOutput": "2146",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "bccbcabcaacbcacaaacbacbaaaaccbaacaccacccbaccaacacca",
+        "expectedOutput": "1185",
+        "sample": false
+      },
+      {
+        "index": 9,
+        "input": "bacbabcbccabaab",
+        "expectedOutput": "102",
+        "sample": false
+      }
+    ]
+  },
+  {
+    "slug": "digit-dp-sum-of-digit-sums",
+    "cases": [
+      {
+        "index": 1,
+        "input": "1 10",
+        "expectedOutput": "46",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "5 5",
+        "expectedOutput": "5",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "1 1",
+        "expectedOutput": "1",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "999 1001",
+        "expectedOutput": "30",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "1 100000",
+        "expectedOutput": "2250001",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "7527 25330",
+        "expectedOutput": "338119",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "22255 26320",
+        "expectedOutput": "78343",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "26086 36324",
+        "expectedOutput": "210729",
+        "sample": false
+      },
+      {
+        "index": 9,
+        "input": "7830 21903",
+        "expectedOutput": "268239",
+        "sample": false
+      }
+    ]
+  },
+  {
+    "slug": "counting-lattice-triangles",
+    "cases": [
+      {
+        "index": 1,
+        "input": "4\n0 0\n1 0\n2 0\n0 1",
+        "expectedOutput": "3",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "3\n0 0\n1 1\n2 2",
+        "expectedOutput": "0",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "3\n0 0\n1 0\n0 1",
+        "expectedOutput": "1",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "4\n0 0\n1000000000 0\n0 1000000000\n1000000000 1000000000",
+        "expectedOutput": "4",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "7\n7 -1\n5 8\n-7 7\n-2 -4\n5 -7\n-7 2\n3 5",
+        "expectedOutput": "35",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "10\n0 -3\n-5 -3\n-2 -1\n-8 3\n5 -6\n0 6\n-6 0\n4 -1\n-7 -4\n-1 5",
+        "expectedOutput": "119",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "5\n-1 -5\n4 0\n-2 -7\n8 6\n2 8",
+        "expectedOutput": "10",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "3\n7 -4\n1 7\n-8 -1",
+        "expectedOutput": "1",
+        "sample": false
+      }
+    ]
+  },
+  {
+    "slug": "convex-hull-perimeter",
+    "cases": [
+      {
+        "index": 1,
+        "input": "4\n0 0\n1 0\n1 1\n0 1",
+        "expectedOutput": "4.000000",
+        "sample": true
+      },
+      {
+        "index": 2,
+        "input": "3\n0 0\n2 0\n1 0",
+        "expectedOutput": "4.000000",
+        "sample": true
+      },
+      {
+        "index": 3,
+        "input": "1\n5 5",
+        "expectedOutput": "0.000000",
+        "sample": false
+      },
+      {
+        "index": 4,
+        "input": "2\n0 0\n3 4",
+        "expectedOutput": "10.000000",
+        "sample": false
+      },
+      {
+        "index": 5,
+        "input": "4\n0 0\n0 0\n1 1\n1 1",
+        "expectedOutput": "2.828427",
+        "sample": false
+      },
+      {
+        "index": 6,
+        "input": "17\n-27 -10\n37 -11\n-24 -30\n45 -29\n-42 -2\n-25 0\n18 42\n-30 41\n-48 -42\n17 -27\n-21 -2\n-24 -42\n-37 -11\n-25 13\n-13 -23\n-36 49\n31 -10",
+        "expectedOutput": "316.414087",
+        "sample": false
+      },
+      {
+        "index": 7,
+        "input": "6\n25 -16\n24 -24\n-42 7\n-25 11\n-47 -31\n-48 4",
+        "expectedOutput": "195.417520",
+        "sample": false
+      },
+      {
+        "index": 8,
+        "input": "5\n9 30\n21 4\n-13 41\n-23 6\n-17 -46",
+        "expectedOutput": "204.779223",
+        "sample": false
+      },
+      {
+        "index": 9,
+        "input": "18\n-19 19\n-39 24\n-17 5\n26 -2\n-47 -35\n-18 -5\n-39 -34\n5 42\n15 -47\n42 -23\n23 23\n35 -47\n-49 -6\n-28 -48\n-45 34\n-16 -47\n-11 28\n-11 -12",
+        "expectedOutput": "306.875980",
+        "sample": false
+      }
+    ]
   }
 ]

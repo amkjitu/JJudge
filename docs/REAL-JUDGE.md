@@ -71,12 +71,23 @@ reachable, not running as root.
 The isolation tests are opt-in, because they deliberately exhaust resources:
 
 ```bash
-ARENA_SANDBOX_IT=1 ./mvnw -pl arena-judge verify
+ARENA_SANDBOX_IT=1 ./mvnw -pl arena-judge -am verify
 ```
 
 They assert that a fork bomb, a memory bomb, a network call, a filesystem write, an infinite
-loop and unbounded output all fail in the specific way each is supposed to. A sandbox nobody has
-tried to break is a claim, not a result.
+loop, a sleeping process and unbounded output all fail in the specific way each is supposed to.
+A sandbox nobody has tried to break is a claim, not a result.
+
+CI runs them on every pull request, which is where they belong — a disposable Linux runner
+tolerates a fork bomb better than a laptop does.
+
+Two things to expect when running them locally:
+
+- **They leave the Docker daemon busy.** Eleven containers are created and destroyed, two of them
+  deliberately exhausting their limits. If a container then fails to start with an unhelpful
+  message, `docker system prune -f` and retry — that is a clogged daemon, not a failing test.
+- **Stop the compose stack first.** The stack and the tests compete for the same memory, and on a
+  small machine the tests lose.
 
 ---
 
@@ -129,6 +140,39 @@ Output comparison is line-based, ignoring trailing whitespace and trailing blank
 byte matching would reject correct solutions over the newline `println` adds; collapsing internal
 whitespace would accept answers no other judge accepts.
 
+### What the clock is actually measuring
+
+A problem's time limit describes an *algorithm*, and it is written against C++. Two things would
+otherwise be charged to the submission that are not its fault:
+
+**The judge's own round trip.** Every test case is a `docker exec`, and that costs real time
+before the program starts. On a loaded host it can exceed the whole time limit — a no-op measured
+2.7 s on the machine this was developed on. So it is measured rather than assumed: opening a
+session times `/bin/true` in the same container three times, takes the *minimum* (the floor is the
+true cost; anything above it is contention), and subtracts that from every case. The runtime shown
+to a user is their program's, not the judge's.
+
+**Runtime startup.** A JVM costs a few hundred milliseconds before `main` is entered, and CPython
+taxes every loop iteration. Each language therefore carries a multiplier on the stated limit:
+
+| Language | Multiplier | 2000 ms becomes |
+|---|---|---|
+| C++ | 1.0 | 2000 ms |
+| Java | 2.0 | 4000 ms |
+| Python | 3.0 | 6000 ms |
+
+These are the conventional figures rather than anything measured here, and they are deliberately
+coarse — the point is to stop punishing a language for being that language, not to equalise them.
+
+This is not a nicety. Before it existed, a correct Java solution to `reverse-the-words` was marked
+`TLE` at 2016 ms against a 2000 ms limit, having spent 1.7 s of that starting the JVM. A wrong
+`TLE` is the worst verdict a judge can give: it is confident, it is specific, and it sends someone
+to optimise code that was never slow.
+
+The overhead allowance is capped at 5 s. A host thrashing badly enough to spend longer than that
+starting a no-op is not one whose timings mean anything, and without the cap the judge would
+quietly hand out minute-long budgets and call slow code correct.
+
 ### Languages
 
 The runner image carries **Python**, **C++** and **Java**. A submission in any other language is
@@ -163,11 +207,25 @@ solution's actual output. A wrong expected output is the worst defect a judge ca
 correct submissions and there is nothing in the judge's own code to find — so the answers come
 from running a known-good implementation rather than from somebody's typing.
 
-Sample cases are cross-checked against the worked examples in the problem statements, so what a
-reader is shown cannot drift from what is actually run.
+The cross-check is enforced rather than intended: the generator refuses to write anything unless
+every statement's worked examples appear as sample cases with the same output, and every problem
+has both a statement and cases. A statement and its test data are edited at different times by
+different hands, so they drift — and when they do, the platform shows someone one thing and marks
+them against another. The check caught exactly that while the catalogue was being filled in.
 
-**Only the ten problems that have written statements have test cases.** A submission to any other
-problem falls back to a simulated verdict, with a warning in the judge's log naming the problem.
+**All 40 problems have statements and test cases**, so nothing falls back to simulation on a
+complete database. A problem added without cases still would, with a warning in the judge's log
+naming it, and its verdict labelled `SIMULATED` — see below.
+
+## How a verdict says what it is
+
+A verdict carries how it was reached: `EXECUTED` when the code was compiled and run, `SIMULATED`
+when it was not. It travels on `VerdictAssigned`, lands in `submissions.judged_by`, appears on the
+API response and is a badge on the submission page.
+
+Without it the two are the same characters in the same column, and the reasonable assumption on
+seeing a verdict is the stronger one. The column is nullable: rows that predate it are left
+`NULL`, because "not recorded" is true and backfilling a value would be inventing history.
 
 ---
 
@@ -177,7 +235,10 @@ problem falls back to a simulated verdict, with a warning in the judge's log nam
 - **No interactive problems**, and no special checkers — a problem with several valid answers
   cannot be judged by string comparison.
 - **Timing is not competition-grade.** Wall clock inside a container on a shared machine varies
-  with load; a real contest judge pins CPUs and calibrates.
+  with load; a real contest judge pins CPUs and calibrates. Subtracting the measured round trip
+  and scaling per language removes the two largest systematic errors, but what remains is still
+  noise from whatever else the host is doing, and the language multipliers are conventions rather
+  than measurements of this runner image.
 - **`MLE` detection is a heuristic.** A container killed for memory and one killed another way
   both exit 137. Nothing else in a sandbox with no signals reaching it sends `SIGKILL`, so the
   inference is sound in practice, but it is an inference.

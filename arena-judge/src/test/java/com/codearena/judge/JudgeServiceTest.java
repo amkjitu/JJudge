@@ -1,5 +1,6 @@
 package com.codearena.judge;
 
+import com.codearena.common.domain.JudgingMethod;
 import com.codearena.common.domain.Language;
 import com.codearena.common.domain.Verdict;
 import com.codearena.common.event.SubmissionCreated;
@@ -155,5 +156,49 @@ class JudgeServiceTest {
 
         assertThat(verdict.verdict()).isEqualTo(Verdict.CE);
         assertThat(verdict.testsPassed()).isZero();
+    }
+
+    @Test
+    @DisplayName("says the verdict was executed when the code was actually run")
+    void executedVerdictSaysSo() {
+        VerdictAssigned verdict = realJudge(List.of(new JudgeTestCase(1, "in", "out")))
+                .judge(submission(WORKING_SOLUTION));
+
+        assertThat(verdict.judgedBy()).isEqualTo(JudgingMethod.EXECUTED);
+    }
+
+    @Test
+    @DisplayName("says the verdict was simulated when the problem has no test cases")
+    void fallbackVerdictSaysSo() {
+        // The important half. This path produces a verdict that looks exactly like an earned one
+        // and means nothing about the code - if it is not labelled here, nothing downstream can
+        // tell the difference, and a reviewer reading a WA would draw the wrong conclusion.
+        VerdictAssigned verdict = realJudge(List.of()).judge(submission(WORKING_SOLUTION));
+
+        assertThat(verdict.judgedBy()).isEqualTo(JudgingMethod.SIMULATED);
+    }
+
+    @Test
+    @DisplayName("says the verdict was simulated when real judging is switched off")
+    void simulatedModeSaysSo() {
+        VerdictAssigned verdict = serviceWith(20).judge(submission(WORKING_SOLUTION));
+
+        assertThat(verdict.judgedBy()).isEqualTo(JudgingMethod.SIMULATED);
+    }
+
+    /**
+     * A service in REAL mode whose test-case source returns {@code cases}. An empty list is how a
+     * problem with nothing written for it presents, which is the fallback path.
+     */
+    private JudgeService realJudge(List<JudgeTestCase> cases) {
+        SandboxedJudgeEngine engine = mock(SandboxedJudgeEngine.class);
+        when(engine.run(any(), any())).thenReturn(List.of(TestCaseOutcome.passed(1, 5)));
+
+        TestCaseSource source = mock(TestCaseSource.class);
+        when(source.findFor(anyString())).thenReturn(cases);
+
+        return new JudgeService(new SimulatedJudge(), pool,
+                new JudgeProperties(JudgeProperties.Mode.REAL, 1, 1, 1, 0),
+                Clock.fixed(NOW, ZoneOffset.UTC), Optional.of(engine), Optional.of(source));
     }
 }

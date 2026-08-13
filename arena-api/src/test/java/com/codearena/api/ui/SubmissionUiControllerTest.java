@@ -3,6 +3,7 @@ package com.codearena.api.ui;
 import com.codearena.api.service.SubmissionService;
 import com.codearena.api.sse.SubmissionStream;
 import com.codearena.api.web.dto.SubmissionResponse;
+import com.codearena.common.domain.JudgingMethod;
 import com.codearena.common.domain.Language;
 import com.codearena.common.domain.SubmissionStatus;
 import com.codearena.common.domain.Verdict;
@@ -52,7 +53,7 @@ class SubmissionUiControllerTest {
     private static SubmissionResponse submissionOwnedBy(String username) {
         return new SubmissionResponse(81L, 23L, "edit-distance", "Edit Distance", username,
                 Language.JAVA, SubmissionStatus.DONE, Verdict.AC, 145,
-                Instant.parse("2026-08-01T12:00:00Z"));
+                JudgingMethod.EXECUTED, Instant.parse("2026-08-01T12:00:00Z"));
     }
 
     @Test

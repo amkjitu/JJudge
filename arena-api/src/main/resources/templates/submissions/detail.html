@@ -27,6 +27,13 @@
         </h1>
         <div>
             <span class="badge text-bg-light border" th:text="${submission.language}">JAVA</span>
+            <!--/*
+              Wrapped rather than replaced directly: th:replace swaps the element out, taking the
+              id with it, and the SSE script needs a stable node to write into when the verdict
+              arrives after the page was rendered.
+            */-->
+            <span id="verdict-method"><span
+                    th:replace="~{fragments/bits :: judgedBy(${submission.judgedBy})}"></span></span>
             <span id="verdict-badge"
                   th:class="${submission.verdict == null ? 'badge text-bg-secondary'
                             : (submission.verdict.name() == 'AC' ? 'badge text-bg-success' : 'badge text-bg-danger')}"
@@ -42,6 +49,23 @@
         <dd class="col-sm-4" id="verdict-runtime"
             th:text="${submission.runtimeMs != null ? submission.runtimeMs + ' ms' : 'not judged yet'}">—</dd>
     </dl>
+
+    <!--/*
+      Spelled out in full here rather than left to the pill's tooltip. On the page dedicated to
+      one submission, a verdict that was never earned is the single most important thing to say
+      about it, and a tooltip is invisible to anyone who does not happen to hover.
+
+      Hidden by default and shown by the script when a live verdict turns out to be simulated,
+      so it behaves the same whether the page was loaded before or after judging finished.
+    */-->
+    <div id="verdict-simulated-notice" class="alert alert-warning small"
+         th:classappend="${submission.judgedBy == null
+                          or submission.judgedBy.name() != 'SIMULATED'} ? 'd-none'">
+        <strong>This verdict was simulated.</strong>
+        This problem has no test cases yet, so the judge derived a verdict from a hash of the
+        submission instead of compiling and running it. It is not a statement about whether the
+        code is correct.
+    </div>
 
     <div id="verdict-notice" th:if="${submission.status.name() != 'DONE'}"
          class="alert alert-secondary d-flex align-items-center">

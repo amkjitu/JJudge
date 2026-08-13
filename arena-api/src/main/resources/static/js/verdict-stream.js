@@ -25,6 +25,8 @@
     var badge = document.getElementById('verdict-badge');
     var runtimeCell = document.getElementById('verdict-runtime');
     var notice = document.getElementById('verdict-notice');
+    var methodSlot = document.getElementById('verdict-method');
+    var simulatedNotice = document.getElementById('verdict-simulated-notice');
 
     var VERDICT_CLASSES = 'badge text-bg-secondary text-bg-success text-bg-danger';
     var POLL_INTERVAL_MS = 5000;
@@ -37,6 +39,33 @@
         return verdict === 'AC' ? 'badge text-bg-success' : 'badge text-bg-danger';
     }
 
+    // Mirrors the judgedBy fragment in fragments/bits.html. Duplicated because the server renders
+    // it on load and this renders it on arrival, and the two must agree - a verdict that arrives
+    // live must not be presented as more trustworthy than the same verdict after a refresh.
+    function renderMethod(judgedBy) {
+        if (!methodSlot) {
+            return;
+        }
+        methodSlot.textContent = '';
+        if (judgedBy !== 'SIMULATED' && judgedBy !== 'EXECUTED') {
+            return;
+        }
+
+        var pill = document.createElement('span');
+        var simulated = judgedBy === 'SIMULATED';
+        pill.className = simulated
+            ? 'badge rounded-pill text-bg-warning'
+            : 'badge rounded-pill text-bg-light border text-muted';
+        // textContent, not innerHTML: nothing here comes from a user, and keeping it that way
+        // means it cannot start to.
+        pill.textContent = simulated ? 'Simulated' : 'Executed';
+        methodSlot.appendChild(pill);
+
+        if (simulatedNotice) {
+            simulatedNotice.classList.toggle('d-none', !simulated);
+        }
+    }
+
     function render(submission) {
         if (badge) {
             badge.className = classFor(submission.verdict);
@@ -45,6 +74,7 @@
         if (runtimeCell && submission.runtimeMs != null) {
             runtimeCell.textContent = submission.runtimeMs + ' ms';
         }
+        renderMethod(submission.judgedBy);
         if (notice && submission.status === 'DONE') {
             notice.remove();
         }

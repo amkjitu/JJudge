@@ -33,6 +33,7 @@
                 <td class="text-end small" th:text="${s.runtimeMs != null ? s.runtimeMs + ' ms' : '—'}">—</td>
                 <td class="text-end">
                     <span th:replace="~{fragments/bits :: verdict(${s.verdict}, ${s.status})}"></span>
+                    <span th:replace="~{fragments/bits :: judgedBy(${s.judgedBy})}"></span>
                 </td>
             </tr>
             <tr th:if="${page.empty}">

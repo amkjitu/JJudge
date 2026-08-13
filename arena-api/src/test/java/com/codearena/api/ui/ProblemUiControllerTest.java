@@ -13,6 +13,7 @@ import com.codearena.api.web.dto.ProblemSummaryResponse;
 import com.codearena.api.web.dto.SubmissionResponse;
 import com.codearena.api.web.dto.TagResponse;
 import com.codearena.common.domain.Difficulty;
+import com.codearena.common.domain.JudgingMethod;
 import com.codearena.common.domain.Language;
 import com.codearena.common.domain.SubmissionStatus;
 import com.codearena.common.domain.Verdict;
@@ -158,7 +159,8 @@ class ProblemUiControllerTest {
         when(submissionService.findByUsernameAndProblem("bob", "dijkstra-on-a-weighted-grid"))
                 .thenReturn(List.of(new SubmissionResponse(7L, 24L, "dijkstra-on-a-weighted-grid",
                         "Dijkstra on a Weighted Grid", "bob", Language.JAVA,
-                        SubmissionStatus.DONE, Verdict.WA, 120, Instant.parse("2026-02-01T00:00:00Z"))));
+                        SubmissionStatus.DONE, Verdict.WA, 120, JudgingMethod.EXECUTED,
+                        Instant.parse("2026-02-01T00:00:00Z"))));
 
         mockMvc.perform(get("/problems/dijkstra-on-a-weighted-grid"))
                 .andExpect(status().isOk())
@@ -191,7 +193,7 @@ class ProblemUiControllerTest {
         when(submissionService.create(eq("bob"), any()))
                 .thenReturn(new SubmissionResponse(101L, 24L, "dijkstra-on-a-weighted-grid",
                         "Dijkstra on a Weighted Grid", "bob", Language.JAVA,
-                        SubmissionStatus.QUEUED, null, null, Instant.now()));
+                        SubmissionStatus.QUEUED, null, null, null, Instant.now()));
 
         mockMvc.perform(post("/problems/dijkstra-on-a-weighted-grid/submit")
                         .with(csrf())

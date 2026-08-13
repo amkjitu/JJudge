@@ -90,6 +90,9 @@ public class VerdictService {
         submission.setStatus(SubmissionStatus.DONE);
         submission.setVerdict(event.verdict());
         submission.setRuntimeMs(event.runtimeMs());
+        // Copied through as-is, null included: an event published before the field existed says
+        // nothing about how it was judged, and defaulting it would turn "unknown" into a claim.
+        submission.setJudgedBy(event.judgedBy());
 
         boolean newlySolved = event.verdict() == Verdict.AC && !alreadySolved;
         updateTagStats(userId, problemId, firstJudgedAttempt, newlySolved);

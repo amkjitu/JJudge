@@ -13,7 +13,8 @@ recommendation engine that models your per-topic proficiency.
 > OAuth2 authentication with rotating refresh tokens and per-user rate limiting; a
 > server-rendered Thymeleaf UI with a CodeMirror editor and Chart.js progress charts; a
 > recommendation engine with a Redis-backed leaderboard; an async judging pipeline over Kafka
-> with live verdicts over SSE; MongoDB-backed problem statements and a source archive; and an
+> with live verdicts over SSE; a sandboxed judge that really compiles and runs Python, C++ and
+> Java in a locked-down container; MongoDB-backed problem statements and a source archive; and an
 > `arena-ai` service for hints and complexity analysis that degrades to static analysis when no
 > model is reachable. Seven containers, one `docker compose up`, and CI that judges a submission
 > end to end. What each phase added is in [Roadmap](#roadmap).
@@ -49,6 +50,7 @@ database — not secrets.
 - [MongoDB](#mongodb)
 - [arena-ai](#arena-ai)
 - [The judging pipeline](#the-judging-pipeline)
+- [Real judging](docs/REAL-JUDGE.md)
 - [Testing](#testing)
 - [Project structure](#project-structure)
 - [Roadmap](#roadmap)
@@ -82,8 +84,8 @@ actually needs a message broker rather than having one bolted on for show.
                         └────┬────┘
                              │ consume
                     ┌────────▼───────────┐
-                    │  arena-judge       │  evaluates in a thread pool
-                    └────────┬───────────┘
+                    │  arena-judge       │  runs the code in a sandboxed container,
+                    └────────┬───────────┘  or simulates when that is switched off
                              │ publish  VerdictAssigned  ──▶ back to arena-api ──▶ SSE
                     ┌────────────────────┐
                     │  arena-ai          │  Spring AI: hints, complexity analysis
@@ -126,7 +128,7 @@ Four Maven modules: `arena-common` (shared enums and event contracts), `arena-ap
 | `tags` | topic taxonomy (30 tags) |
 | `problem_tags` | problem ↔ tag many-to-many |
 | `tag_prerequisites` | directed edges of the prerequisite DAG over tags |
-| `submissions` | one row per attempt: language, status, verdict, runtime |
+| `submissions` | one row per attempt: language, status, verdict, runtime, how it was judged |
 | `user_tag_stats` | denormalised per-user, per-tag solved/attempt counters |
 | `refresh_tokens` | hashed, revocable refresh tokens with rotation lineage |
 
@@ -320,6 +322,30 @@ Tear down, including the database volume:
 
 ```bash
 docker compose down -v
+```
+
+### Turning on real judging
+
+Submissions are judged by hash unless you ask for otherwise. To run them for real, build the
+runner image once:
+
+```bash
+docker build -t codearena/arena-runner:dev arena-judge/runner
+```
+
+Then start the stack with the mode set:
+
+```bash
+ARENA_JUDGE_MODE=REAL docker compose up -d --build
+```
+
+**Do this on a machine you can rebuild, not one you care about.** The judge needs a Docker
+socket to create containers, and that is equivalent to root on the host — read
+[docs/REAL-JUDGE.md](docs/REAL-JUDGE.md) before enabling it anywhere that matters. On Linux the
+socket is group-owned, so pass its gid too:
+
+```bash
+ARENA_DOCKER_GID=$(getent group docker | cut -d: -f3) ARENA_JUDGE_MODE=REAL docker compose up -d
 ```
 
 ### Deploying it publicly
@@ -739,17 +765,52 @@ worker fetching by reference could arrive before the document was visible — a 
 shows up under load. Sending the code means the worker has everything it needs the moment the
 record lands, and the MongoDB write is purely for the archive.
 
-### Judging is simulated, deterministically
+### Judging: two modes, and the verdict says which one ran
 
-Compiling and running untrusted code needs a real sandbox — containers, seccomp, cgroups — which
-is a project in itself and not what this one demonstrates. What *is* real is everything around
-it: the queue, the worker, the ordering guarantees, the write-back, the live update.
+The judge has a real mode and a simulated one, and **it defaults to simulated**.
 
-The outcome is a pure function of the submission's content: no `Random`, no clock. That is what
-lets an end-to-end test assert an exact verdict instead of retrying until it sees one, and it
-means resubmitting identical code gives the same answer — which is what anyone would expect of a
-judge. Obvious tells are checked before the hash, so `while (true)` reliably times out and an
-empty body reliably fails to compile.
+**`ARENA_JUDGE_MODE=REAL`** compiles and runs the submission against real test cases in a
+locked-down container — `--network none`, read-only root, capped memory with swap disabled, a PID
+ceiling, a CPU quota, no capabilities. Python, C++ and Java. The full design, including the trust
+boundary it does *not* cross, is in **[docs/REAL-JUDGE.md](docs/REAL-JUDGE.md)**.
+
+It is off by default because creating containers needs a Docker socket, and **access to a Docker
+socket is equivalent to root on the host**. The sandbox protects the machine from the submitted
+code; it does not protect the machine from the judge. That is a fine trade on a throwaway VM and
+a bad one on the box also serving the site, so the choice is explicit rather than a default.
+
+**Simulated mode** derives the verdict from a hash of the submission — no `Random`, no clock. It
+is what makes an end-to-end test able to assert an exact verdict instead of retrying until it
+sees one, and it is why the stack is safe to expose publicly: there is no untrusted execution in
+it anywhere. Obvious tells are checked before the hash, so `while (true)` reliably times out and
+an empty body reliably fails to compile. It says nothing about whether the code is correct.
+
+Real mode also falls back to simulation for a problem with no test cases, so both can occur in
+one deployment. **Which one produced a verdict travels with it** — on the `VerdictAssigned`
+event, in `submissions.judged_by`, on the API response, and as a badge on the submission page:
+
+> `AC` `Executed` — compiled and run against the problem's test cases
+> `WA` `Simulated` — this problem has no test cases; the verdict is a hash
+
+Storing the verdict without it was the actual bug. A simulated `WA` and an earned one are the
+same two characters in the same column, and the reasonable assumption on seeing one is the
+stronger of the two. The column is nullable and rows that predate it are left `NULL` — "not
+recorded" is the truth, and backfilling a value would be inventing history.
+
+#### What the clock measures
+
+A time limit describes an *algorithm*, and it is written against C++. Two costs were being
+charged to submissions that are not theirs:
+
+- **The judge's own round trip.** Each test case is a `docker exec`. Opening a session times
+  `/bin/true` in the same container three times and takes the **minimum** — the floor is the real
+  cost, anything above it is host contention — and subtracts that from every case.
+- **Runtime startup.** A JVM costs a few hundred milliseconds before `main`. Each language
+  carries a multiplier: C++ ×1, Java ×2, Python ×3.
+
+Before this, a correct Java solution was marked `TLE` at 2016 ms against a 2000 ms limit, having
+spent 1.7 s of it starting the JVM. A wrong `TLE` is the worst verdict a judge can produce: it is
+confident, it is specific, and it sends someone to optimise code that was never slow.
 
 ### Live updates over SSE
 
@@ -882,6 +943,11 @@ What the suite covers:
 - a duplicate verdict changes nothing — the failure at-least-once delivery guarantees you
 - an orphan verdict does not stall the partition; the consumer survives and handles the next
 - judging is deterministic, so an end-to-end test can assert an exact verdict
+- a verdict records whether it was executed or simulated, and an event from before that field
+  existed leaves it unknown rather than claiming the code was run
+- the sandbox holds under attack: a fork bomb, a memory bomb, a network call, a filesystem write,
+  an infinite loop, a sleeping process and unbounded output each fail in the specific way they
+  are supposed to. A sandbox nobody has tried to break is a claim, not a result
 - every Thymeleaf page actually renders: the UI slices run the template engine and assert
   against the produced HTML, so a fragment typo fails the build rather than the demo
 - submitted source is escaped, not interpreted — `<script>` comes back as `&lt;script&gt;`
@@ -1066,6 +1132,7 @@ Override with `-Ddocker.api.version=…` if your engine needs something differen
 | 6 | Kafka pipeline, `arena-judge` worker, SSE live verdicts | ✅ done |
 | 7 | MongoDB statements/sources, `arena-ai` hints and complexity analysis | ✅ done |
 | 8 | Full compose stack, GitHub Actions, docs, screenshots | ✅ done |
+| 9 | Sandboxed judge: real execution of Python, C++ and Java behind a flag | ✅ done |
 
 ---
 

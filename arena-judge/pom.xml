@@ -69,6 +69,16 @@
                     </excludes>
                 </configuration>
             </plugin>
+            <!--
+              Without this, `verify` runs the unit tests and silently skips every *IT class -
+              failsafe is only in the parent's pluginManagement, which sets its configuration but
+              does not bind it to the lifecycle. DockerSandboxIT sat in the tree unexecuted, and
+              the documented command for running it did nothing but print BUILD SUCCESS.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+            </plugin>
         </plugins>
     </build>
 </project>

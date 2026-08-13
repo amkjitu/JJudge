@@ -92,7 +92,7 @@ public class DockerSandbox implements Sandbox {
         ExecutionResult started = runHost(create, "", properties.dockerCommandTimeout(), 64 * 1024);
         if (!started.succeeded()) {
             throw new SandboxUnavailableException(
-                    "Could not start a sandbox container: " + started.stderr().strip());
+                    "Could not start a sandbox container: " + describe(started));
         }
         return new DockerSession(container);
     }
@@ -187,6 +187,29 @@ public class DockerSandbox implements Sandbox {
     }
 
     /**
+     * Describes a failed docker command well enough to act on.
+     *
+     * <p>Reporting stderr alone is not enough. A daemon that has been overwhelmed - by the
+     * previous submission's fork bomb, say - fails {@code docker run} with an empty stderr and a
+     * non-zero exit, and "Could not start a sandbox container: " with nothing after the colon
+     * says only that something went wrong somewhere. The exit code distinguishes that from the
+     * ordinary causes, and a timeout is called by name because it looks like nothing at all.
+     */
+    private static String describe(ExecutionResult result) {
+        String stderr = result.stderr().strip();
+        if (!stderr.isEmpty()) {
+            return stderr;
+        }
+        if (result.timedOut()) {
+            return "the docker client did not return within its timeout - the daemon is "
+                    + "unresponsive or overloaded";
+        }
+        String stdout = result.stdout().strip();
+        return "docker exited " + result.exitCode() + " and said nothing on stderr"
+                + (stdout.isEmpty() ? "" : "; stdout was: " + stdout);
+    }
+
+    /**
      * Runs a command on the host - the docker client itself, never a submission.
      *
      * <p>Streams go to temporary files rather than pipes. A process that writes more than the
@@ -218,8 +241,13 @@ public class DockerSandbox implements Sandbox {
             if (!finished) {
                 process.destroyForcibly();
                 process.waitFor(5, TimeUnit.SECONDS);
+                // Truncation is reported here too. A program that runs out of time having also
+                // printed far too much has done both, and the file size says so - hardcoding
+                // false threw away a fact already on disk. It does not change the verdict, which
+                // is TLE either way, but a caller asking what happened deserves the truth.
                 return new ExecutionResult(SIGKILL_EXIT, readCapped(out, maxOutputBytes),
-                        readCapped(err, 8192), elapsed, true, false, false);
+                        readCapped(err, 8192), elapsed, true, false,
+                        Files.size(out) > maxOutputBytes);
             }
 
             int exitCode = process.exitValue();

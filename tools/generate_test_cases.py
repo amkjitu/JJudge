@@ -25,13 +25,22 @@ Each problem gets:
   - the worked examples from its statement, so what a reader is shown is genuinely judged
   - hand-picked edge cases, which is where the interesting failures live
   - randomised cases at a fixed seed, so the file is reproducible
+
+Nothing is written unless every statement's worked examples match their sample cases, and every
+problem has both. See check_against_statements.
 """
 
 import json
 import random
+import sys
 from pathlib import Path
 
+# Resolves because Python puts a script's own directory on sys.path, so this works from the
+# repository root as documented above.
+import reference_solutions
+
 OUT = Path("arena-api/src/main/resources/mongo/problem-test-cases.json")
+STATEMENTS = Path("arena-api/src/main/resources/mongo/problem-statements.json")
 
 # Fixed so regenerating produces an identical file - a diff should mean somebody changed the
 # generator, not that the dice rolled differently.
@@ -302,6 +311,55 @@ PROBLEMS = [
     ("edit-distance", edit_distance, edit_distance_inputs),
 ]
 
+# The rest of the catalogue lives in its own module purely for size.
+PROBLEMS += reference_solutions.PROBLEMS
+
+
+def check_against_statements(documents):
+    """
+    Every worked example in a statement must appear as a sample case with the same output.
+
+    This is the one guard that matters. The statement is what a person reads and the test cases
+    are what their code is judged against, and the two are edited at different times by different
+    hands - so they drift, and when they do the platform shows someone one thing and marks them
+    against another. Here the expected output comes from the reference solution, so a mismatch
+    means the *statement* is wrong, and it is reported with the value that would make it right.
+
+    Returns a list of complaints; empty means they agree.
+    """
+    if not STATEMENTS.exists():
+        return [f"{STATEMENTS} is missing, so nothing could be cross-checked"]
+
+    statements = {d["slug"]: d for d in json.loads(STATEMENTS.read_text(encoding="utf-8"))}
+    by_slug = {d["slug"]: d for d in documents}
+    complaints = []
+
+    for slug, statement in sorted(statements.items()):
+        if slug not in by_slug:
+            complaints.append(f"{slug}: has a statement but no test cases")
+            continue
+
+        samples = {c["input"]: c["expectedOutput"]
+                   for c in by_slug[slug]["cases"] if c["sample"]}
+        for example in statement.get("examples", []):
+            shown_in, shown_out = example["input"], example["output"]
+            if shown_in not in samples:
+                complaints.append(
+                    f"{slug}: the statement shows an example that is not a sample case:\n"
+                    f"      input {shown_in!r}")
+            elif samples[shown_in] != shown_out:
+                complaints.append(
+                    f"{slug}: the statement's example output disagrees with the reference "
+                    f"solution\n"
+                    f"      input     {shown_in!r}\n"
+                    f"      statement {shown_out!r}\n"
+                    f"      reference {samples[shown_in]!r}")
+
+    for slug in sorted(by_slug.keys() - statements.keys()):
+        complaints.append(f"{slug}: has test cases but no statement, so nobody can know the "
+                          f"input format it is judged against")
+    return complaints
+
 
 def main():
     documents = []
@@ -316,7 +374,18 @@ def main():
             })
         documents.append({"slug": slug, "cases": cases})
         samples = sum(1 for c in cases if c["sample"])
-        print(f"  {slug:<32} {len(cases):>2} cases ({samples} sample)")
+        print(f"  {slug:<36} {len(cases):>2} cases ({samples} sample)")
+
+    duplicates = {d["slug"] for d in documents}
+    if len(duplicates) != len(documents):
+        raise SystemExit("  the same slug appears twice in PROBLEMS")
+
+    complaints = check_against_statements(documents)
+    if complaints:
+        print("\n  Statements and test cases disagree - nothing was written:\n")
+        for complaint in complaints:
+            print(f"    - {complaint}")
+        return 1
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(documents, indent=2, ensure_ascii=False) + "\n",
@@ -324,7 +393,9 @@ def main():
     total = sum(len(d["cases"]) for d in documents)
     print(f"\n  {len(documents)} problems, {total} cases -> {OUT} "
           f"({OUT.stat().st_size // 1024} KB)")
+    print("  every statement example matches its sample case")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

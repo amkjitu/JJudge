@@ -1,5 +1,6 @@
 package com.codearena.api.domain;
 
+import com.codearena.common.domain.JudgingMethod;
 import com.codearena.common.domain.Language;
 import com.codearena.common.domain.SubmissionStatus;
 import com.codearena.common.domain.Verdict;
@@ -68,6 +69,15 @@ public class Submission {
 
     @Column(name = "runtime_ms")
     private Integer runtimeMs;
+
+    /**
+     * How the verdict was reached. Null for rows that predate the column - the seeded history and
+     * anything judged before it existed - and left null rather than backfilled, because a guess
+     * here is indistinguishable from a fact for everyone reading it afterwards.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "judged_by", length = 20)
+    private JudgingMethod judgedBy;
 
     @CreatedDate
     @Column(name = "submitted_at", nullable = false, updatable = false)

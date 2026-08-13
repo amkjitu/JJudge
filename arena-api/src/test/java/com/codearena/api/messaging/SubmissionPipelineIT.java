@@ -5,6 +5,7 @@ import com.codearena.api.support.MongoTestContainer;
 import com.codearena.api.support.PostgresTestContainer;
 import com.codearena.api.support.RedisTestContainer;
 import com.codearena.common.domain.SubmissionStatus;
+import com.codearena.common.domain.JudgingMethod;
 import com.codearena.common.domain.Verdict;
 import com.codearena.common.event.ArenaTopics;
 import com.codearena.common.event.SubmissionCreated;
@@ -183,7 +184,7 @@ class SubmissionPipelineIT {
         long submissionId = submitAs("alice", "edit-distance");
 
         VerdictAssigned verdict = new VerdictAssigned(submissionId, null, null,
-                Verdict.AC, 123, 20, 20, null, Instant.now());
+                Verdict.AC, 123, 20, 20, null, Instant.now(), JudgingMethod.EXECUTED);
         kafkaTemplate.send(ArenaTopics.VERDICTS, String.valueOf(submissionId), verdict).join();
 
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
@@ -204,7 +205,7 @@ class SubmissionPipelineIT {
                 "SELECT rating FROM users WHERE username = 'alice'", Integer.class);
 
         VerdictAssigned verdict = new VerdictAssigned(submissionId, null, null,
-                Verdict.AC, 50, 20, 20, null, Instant.now());
+                Verdict.AC, 50, 20, 20, null, Instant.now(), JudgingMethod.EXECUTED);
 
         // At-least-once delivery makes this inevitable in production, not hypothetical.
         kafkaTemplate.send(ArenaTopics.VERDICTS, String.valueOf(submissionId), verdict).join();
@@ -229,7 +230,7 @@ class SubmissionPipelineIT {
     @DisplayName("a verdict for a submission that no longer exists is ignored, not fatal")
     void orphanVerdictDoesNotBreakTheConsumer() throws Exception {
         VerdictAssigned orphan = new VerdictAssigned(999_999L, null, null,
-                Verdict.AC, 10, 20, 20, null, Instant.now());
+                Verdict.AC, 10, 20, 20, null, Instant.now(), JudgingMethod.EXECUTED);
         kafkaTemplate.send(ArenaTopics.VERDICTS, "999999", orphan).join();
 
         // The real assertion: the consumer survives and still processes the next message. A
@@ -237,7 +238,7 @@ class SubmissionPipelineIT {
         long submissionId = submitAs("alice", "edit-distance");
         kafkaTemplate.send(ArenaTopics.VERDICTS, String.valueOf(submissionId),
                 new VerdictAssigned(submissionId, null, null, Verdict.WA, 77, 12, 20, 13,
-                        Instant.now())).join();
+                        Instant.now(), JudgingMethod.EXECUTED)).join();
 
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->
                 assertThat(jdbcTemplate.queryForObject(
@@ -265,7 +266,7 @@ class SubmissionPipelineIT {
         long submissionId = submitAs("alice", "edit-distance");
 
         VerdictAssigned verdict = new VerdictAssigned(submissionId, null, null,
-                Verdict.AC, 42, 20, 20, null, Instant.now());
+                Verdict.AC, 42, 20, 20, null, Instant.now(), JudgingMethod.EXECUTED);
         kafkaTemplate.send(ArenaTopics.VERDICTS, String.valueOf(submissionId), verdict).join();
 
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->

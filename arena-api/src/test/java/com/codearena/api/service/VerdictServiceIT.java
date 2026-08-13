@@ -11,6 +11,7 @@ import com.codearena.api.support.PostgresTestContainer;
 import com.codearena.api.support.RedisTestContainer;
 import com.codearena.common.domain.Language;
 import com.codearena.common.domain.SubmissionStatus;
+import com.codearena.common.domain.JudgingMethod;
 import com.codearena.common.domain.Verdict;
 import com.codearena.common.event.VerdictAssigned;
 import org.junit.jupiter.api.AfterEach;
@@ -131,7 +132,7 @@ class VerdictServiceIT {
     private VerdictAssigned verdictFor(Submission submission, Verdict verdict) {
         return new VerdictAssigned(submission.getId(), userId, PROBLEM_ID, verdict,
                 145, verdict == Verdict.AC ? 20 : 12, 20,
-                verdict == Verdict.AC ? null : 13, Instant.now());
+                verdict == Verdict.AC ? null : 13, Instant.now(), JudgingMethod.EXECUTED);
     }
 
     private Map<String, int[]> statsByTag() {
@@ -153,6 +154,37 @@ class VerdictServiceIT {
         assertThat(reloaded.getStatus()).isEqualTo(SubmissionStatus.DONE);
         assertThat(reloaded.getVerdict()).isEqualTo(Verdict.WA);
         assertThat(reloaded.getRuntimeMs()).isEqualTo(145);
+        assertThat(reloaded.getJudgedBy()).isEqualTo(JudgingMethod.EXECUTED);
+    }
+
+    @Test
+    @DisplayName("records that a verdict was simulated, so it cannot be mistaken for an earned one")
+    void recordsSimulatedVerdicts() {
+        // Without this the two are the same four characters in the same column, and every reader
+        // downstream - the UI, the API, anyone querying the table - would assume the stronger one.
+        Submission submission = queuedSubmission();
+
+        verdictService.apply(new VerdictAssigned(submission.getId(), userId, PROBLEM_ID,
+                Verdict.WA, 145, 12, 20, 13, Instant.now(), JudgingMethod.SIMULATED));
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT judged_by FROM submissions WHERE id = ?", String.class, submission.getId()))
+                .isEqualTo("SIMULATED");
+    }
+
+    @Test
+    @DisplayName("an event from before the field existed leaves it unknown rather than guessing")
+    void missingJudgedByStaysNull() {
+        // The verdicts topic is durable, so a consumer meets the old shape after any deploy where
+        // the API rolls before the judge. Defaulting it to EXECUTED would turn every one of those
+        // into a false claim that the code was run.
+        Submission submission = queuedSubmission();
+
+        verdictService.apply(new VerdictAssigned(submission.getId(), userId, PROBLEM_ID,
+                Verdict.AC, 145, 20, 20, null, Instant.now(), null));
+
+        assertThat(submissionRepository.findById(submission.getId()).orElseThrow().getJudgedBy())
+                .isNull();
     }
 
     @Test
@@ -247,7 +279,7 @@ class VerdictServiceIT {
     @DisplayName("a verdict for an unknown submission is ignored rather than fatal")
     void unknownSubmissionIsIgnored() {
         VerdictAssigned orphan = new VerdictAssigned(999_999L, userId, PROBLEM_ID,
-                Verdict.AC, 10, 20, 20, null, Instant.now());
+                Verdict.AC, 10, 20, 20, null, Instant.now(), JudgingMethod.EXECUTED);
 
         assertThat(verdictService.apply(orphan)).isEmpty();
     }

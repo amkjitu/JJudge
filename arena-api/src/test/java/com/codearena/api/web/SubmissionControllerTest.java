@@ -70,7 +70,7 @@ class SubmissionControllerTest {
 
     private static SubmissionResponse queuedSubmission() {
         return new SubmissionResponse(101L, 10L, "maximum-subarray-sum", "Maximum Subarray Sum",
-                "bob", Language.JAVA, SubmissionStatus.QUEUED, null, null,
+                "bob", Language.JAVA, SubmissionStatus.QUEUED, null, null, null,
                 Instant.parse("2026-08-07T10:15:30Z"));
     }
 

@@ -53,3 +53,7 @@ application-local.properties
 
 ### Docker volumes (bind mounts, if any) ###
 .data/
+
+### Python (the test-case generator in tools/) ###
+__pycache__/
+*.pyc

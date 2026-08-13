@@ -148,5 +148,515 @@
         "explanation": "Already equal."
       }
     ]
+  },
+  {
+    "slug": "running-sum-of-array",
+    "statementMarkdown": "Given an array, output its running sum: the value at each position is the sum of every element up to and including it.\n\n## Constraints\n\n- `1 <= n <= 10^5`\n- `-10^4 <= a[i] <= 10^4`\n\n## Input\n\nThe first line contains `n`. The second line contains `n` integers.\n\n## Output\n\nThe `n` running sums, space-separated on one line.",
+    "editorialMarkdown": "Keep one accumulator and add each element to it as you walk the array, printing as you go. There is nothing to store beyond the answer itself.\n\nThe only trap is the accumulator's width: `n` at `10^5` and values at `10^4` reach `10^9`, which still fits a signed 32-bit integer — but only just, and a slightly larger constraint would not. Use a 64-bit accumulator and stop thinking about it.\n\n**Complexity:** O(n) time, O(1) extra space.",
+    "examples": [
+      {
+        "input": "4\n1 2 3 4",
+        "output": "1 3 6 10",
+        "explanation": "Each output is the sum of the prefix ending at that position."
+      },
+      {
+        "input": "3\n1 -1 5",
+        "output": "1 0 5",
+        "explanation": "Negative values reduce the running total."
+      }
+    ]
+  },
+  {
+    "slug": "count-even-digits",
+    "statementMarkdown": "For each of `n` given integers, count how many of its decimal digits are even.\n\nA negative number's sign is not a digit. `0` is even.\n\n## Constraints\n\n- `1 <= n <= 10^4`\n- `-10^9 <= a[i] <= 10^9`\n\n## Input\n\nThe first line contains `n`. The second line contains `n` integers.\n\n## Output\n\n`n` counts, space-separated on one line.",
+    "editorialMarkdown": "Take the absolute value, then repeatedly divide by ten and test the remainder — or convert to a string and filter. Both are O(digits).\n\nTwo cases are worth writing down before you start, because they are the ones that separate a correct solution from an almost-correct one: `0` has one digit and it is even, so the answer is `1`, not `0`. And a negative number's minus sign must not be counted or crashed on.\n\n**Complexity:** O(n log A) time.",
+    "examples": [
+      {
+        "input": "3\n248 13 0",
+        "output": "3 0 1",
+        "explanation": "248 has three even digits; 13 has none; 0 is a single even digit."
+      },
+      {
+        "input": "2\n-24 1000000000",
+        "output": "2 9",
+        "explanation": "The sign is not a digit. The nine zeros are even; the leading 1 is not."
+      }
+    ]
+  },
+  {
+    "slug": "anagram-groups",
+    "statementMarkdown": "Given `n` lowercase words, count how many groups they fall into when words that are anagrams of one another are grouped together.\n\nTwo words are anagrams if one is a permutation of the other. Identical words are anagrams.\n\n## Constraints\n\n- `1 <= n <= 10^4`\n- Each word is 1 to 20 lowercase letters.\n\n## Input\n\nThe first line contains `n`. Each of the next `n` lines contains one word.\n\n## Output\n\nA single integer: the number of groups.",
+    "editorialMarkdown": "Reduce each word to a canonical form that all its anagrams share, then count distinct forms. Sorting the letters is the obvious choice and costs O(L log L) per word; a 26-slot letter-count tuple is O(L) and just as easy to hash.\n\nDo not compare words pairwise. That is O(n^2) comparisons at `n = 10^4`, and it is the difference between a solution that finishes and one that does not.\n\n**Complexity:** O(n L) time with counting, O(n L) space.",
+    "examples": [
+      {
+        "input": "6\neat\ntea\ntan\nate\nnat\nbat",
+        "output": "3",
+        "explanation": "{eat, tea, ate}, {tan, nat} and {bat}."
+      },
+      {
+        "input": "3\na\na\na",
+        "output": "1",
+        "explanation": "Identical words share a group."
+      }
+    ]
+  },
+  {
+    "slug": "island-counter",
+    "statementMarkdown": "Given a grid of `0`s and `1`s, count the islands. An island is a maximal group of `1` cells connected horizontally or vertically. Diagonal neighbours are **not** connected.\n\n## Constraints\n\n- `1 <= r, c <= 500`\n\n## Input\n\nThe first line contains `r` and `c`. Each of the next `r` lines contains `c` characters, each `0` or `1`, with no separators.\n\n## Output\n\nA single integer: the number of islands.",
+    "editorialMarkdown": "Scan the grid. Every time you meet a `1` that has not been visited, increment the answer and flood-fill from it, marking everything reachable. Each cell is visited once, so the whole scan is linear in the grid.\n\nPrefer an explicit stack or queue to recursion. A 500x500 grid that is entirely `1` gives a recursion depth of 250,000, which overflows the default stack in most languages — and it fails as a crash rather than a wrong answer, which is a confusing way to learn this.\n\n**Complexity:** O(r c) time and space.",
+    "examples": [
+      {
+        "input": "4 5\n11000\n11000\n00100\n00011",
+        "output": "3",
+        "explanation": "The top-left block, the single centre cell, and the bottom-right pair."
+      },
+      {
+        "input": "2 2\n10\n01",
+        "output": "2",
+        "explanation": "Diagonal cells are not connected, so these are two islands."
+      }
+    ]
+  },
+  {
+    "slug": "number-of-connected-components",
+    "statementMarkdown": "Given an undirected graph on `n` vertices numbered `1..n` with `m` edges, count its connected components.\n\nIsolated vertices count as components of their own.\n\n## Constraints\n\n- `1 <= n <= 10^5`\n- `0 <= m <= 2 * 10^5`\n- The graph may contain self-loops and repeated edges.\n\n## Input\n\nThe first line contains `n` and `m`. Each of the next `m` lines contains an edge `u v`.\n\n## Output\n\nA single integer: the number of components.",
+    "editorialMarkdown": "Either a traversal or a disjoint-set union works. With DSU, start the answer at `n` and decrement each time a union genuinely merges two different sets — repeated edges and self-loops then cost nothing extra, because their union is a no-op.\n\nWith BFS or DFS, loop over the vertices and start a traversal from each unvisited one. Use an iterative traversal: a path graph on `10^5` vertices is a legal input and will overflow a recursive stack.\n\n**Complexity:** O(n + m) time with union by size and path compression.",
+    "examples": [
+      {
+        "input": "5 3\n1 2\n2 3\n4 5",
+        "output": "2",
+        "explanation": "{1,2,3} and {4,5}."
+      },
+      {
+        "input": "3 0",
+        "output": "3",
+        "explanation": "With no edges every vertex is its own component."
+      }
+    ]
+  },
+  {
+    "slug": "rotate-matrix-in-place",
+    "statementMarkdown": "Rotate an `n x n` matrix 90 degrees clockwise.\n\n## Constraints\n\n- `1 <= n <= 500`\n- `-10^9 <= a[i][j] <= 10^9`\n\n## Input\n\nThe first line contains `n`. Each of the next `n` lines contains `n` integers.\n\n## Output\n\n`n` lines of `n` integers: the rotated matrix.",
+    "editorialMarkdown": "The element at `(i, j)` ends at `(j, n-1-i)`. Writing that directly into a second matrix is the clearest solution and is what most people should write.\n\nTo do it without the second matrix — which is what the title asks for — transpose the matrix, then reverse each row. Both steps are in place, and the composition is exactly a clockwise quarter turn. Transposing means swapping `(i, j)` with `(j, i)` for `j > i` only; running over all pairs swaps everything twice and leaves the matrix untouched, which is the classic way this goes wrong.\n\n**Complexity:** O(n^2) time, O(1) extra space.",
+    "examples": [
+      {
+        "input": "3\n1 2 3\n4 5 6\n7 8 9",
+        "output": "7 4 1\n8 5 2\n9 6 3",
+        "explanation": "The first column, read bottom to top, becomes the first row."
+      },
+      {
+        "input": "1\n42",
+        "output": "42",
+        "explanation": "A single element is unchanged."
+      }
+    ]
+  },
+  {
+    "slug": "modular-exponentiation",
+    "statementMarkdown": "For each query, compute `a^b mod m`.\n\n## Constraints\n\n- `1 <= q <= 10^5`\n- `0 <= a, b <= 10^18`\n- `1 <= m <= 10^9`\n\n## Input\n\nThe first line contains `q`. Each of the next `q` lines contains `a`, `b` and `m`.\n\n## Output\n\nOne line per query: the value of `a^b mod m`.",
+    "editorialMarkdown": "Square-and-multiply. Reduce `a` modulo `m` up front, then walk the bits of `b`, squaring the running base each step and multiplying it into the answer wherever the bit is set. That is O(log b) multiplications instead of `b` of them, which is the whole problem — `b` reaches `10^18`.\n\nTwo things bite in fixed-width languages. Products reach `m^2`, just under `10^18`, so multiply in 64-bit and never in 32-bit. And `m = 1` makes every answer `0`, including `a^0`, so reduce the initial `1` modulo `m` rather than returning it unconditionally.\n\n**Complexity:** O(q log b) time.",
+    "examples": [
+      {
+        "input": "3\n2 10 1000\n3 0 7\n5 3 1",
+        "output": "24\n1\n0",
+        "explanation": "1024 mod 1000 = 24; anything to the power 0 is 1; every value mod 1 is 0."
+      },
+      {
+        "input": "1\n0 0 5",
+        "output": "1",
+        "explanation": "0^0 is taken to be 1 here."
+      }
+    ]
+  },
+  {
+    "slug": "count-distinct-prime-factors",
+    "statementMarkdown": "For each of `n` given integers, count its **distinct** prime factors.\n\n`1` has none.\n\n## Constraints\n\n- `1 <= n <= 10^4`\n- `1 <= a[i] <= 10^6`\n\n## Input\n\nThe first line contains `n`. The second line contains `n` integers.\n\n## Output\n\n`n` counts, space-separated on one line.",
+    "editorialMarkdown": "Trial division to the square root works within these limits: for each value, divide out each prime candidate completely before moving on, and remember that whatever remains above `1` at the end is itself a prime factor.\n\nIf the input were larger, the better tool is a sieve computing each number's smallest prime factor once, after which every value factorises in O(log a) lookups. That is the version worth knowing.\n\nRepeated factors must be counted once — `12 = 2^2 * 3` has two distinct primes, not three.\n\n**Complexity:** O(n sqrt(A)) by trial division, or O(A log log A + n log A) with a sieve.",
+    "examples": [
+      {
+        "input": "4\n12 1 97 360",
+        "output": "2 0 1 3",
+        "explanation": "12 = 2^2*3; 1 has none; 97 is prime; 360 = 2^3*3^2*5."
+      },
+      {
+        "input": "2\n1000000 999983",
+        "output": "2 1",
+        "explanation": "10^6 = 2^6*5^6, and 999983 is prime."
+      }
+    ]
+  },
+  {
+    "slug": "sliding-window-maximum",
+    "statementMarkdown": "Given an array and a window size `k`, output the maximum of every contiguous window of length `k`.\n\n## Constraints\n\n- `1 <= k <= n <= 10^5`\n- `-10^9 <= a[i] <= 10^9`\n\n## Input\n\nThe first line contains `n` and `k`. The second line contains `n` integers.\n\n## Output\n\nThe `n - k + 1` window maxima, space-separated on one line.",
+    "editorialMarkdown": "Keep a deque of **indices** whose values are strictly decreasing. Before pushing `i`, pop from the back every index whose value is not greater than `a[i]` — those can never be a maximum again, because `a[i]` is larger and outlives them. Then pop from the front any index that has fallen out of the window. The front is the answer.\n\nEach index is pushed and popped at most once, so the whole scan is O(n) despite the inner loops.\n\nStore indices rather than values. With values you cannot tell when the front has left the window, and that is the bug this problem is really about.\n\n**Complexity:** O(n) time, O(k) space.",
+    "examples": [
+      {
+        "input": "8 3\n1 3 -1 -3 5 3 6 7",
+        "output": "3 3 5 5 6 7",
+        "explanation": "The maxima of the six windows of length 3."
+      },
+      {
+        "input": "4 4\n4 3 2 1",
+        "output": "4",
+        "explanation": "One window covering the whole array."
+      }
+    ]
+  },
+  {
+    "slug": "kth-smallest-in-a-stream",
+    "statementMarkdown": "Numbers arrive one at a time. After each arrival, report the `k`-th smallest value seen so far, or `-1` if fewer than `k` numbers have arrived.\n\nDuplicates count separately: in the stream `5 5`, the 2nd smallest is `5`.\n\n## Constraints\n\n- `1 <= k <= n <= 10^5`\n- `-10^9 <= a[i] <= 10^9`\n\n## Input\n\nThe first line contains `n` and `k`. The second line contains the `n` values in arrival order.\n\n## Output\n\n`n` values, space-separated on one line: the answer after each arrival.",
+    "editorialMarkdown": "Keep a max-heap holding the `k` smallest values seen so far. Push each arrival; if the heap now holds more than `k`, pop the largest. The top is then the `k`-th smallest, and it is `-1` while the heap is still filling.\n\nThat is O(log k) per element rather than the O(n log n) of re-sorting, and the heap never grows past `k` regardless of the stream's length — which is the property that makes it a streaming solution rather than a batch one.\n\nIn a language with only a min-heap, push negated values.\n\n**Complexity:** O(n log k) time, O(k) space.",
+    "examples": [
+      {
+        "input": "5 2\n5 1 3 2 4",
+        "output": "-1 5 3 2 2",
+        "explanation": "After 5 only one value has arrived. After 5 1 the 2nd smallest is 5."
+      },
+      {
+        "input": "3 1\n7 3 9",
+        "output": "7 3 3",
+        "explanation": "With k = 1 this is the running minimum."
+      }
+    ]
+  },
+  {
+    "slug": "coin-change-minimum",
+    "statementMarkdown": "Given coin denominations and a target amount, find the fewest coins that sum to exactly the amount. Each denomination may be used any number of times.\n\nReport `-1` if the amount cannot be made.\n\n## Constraints\n\n- `1 <= n <= 100`\n- `1 <= amount <= 10^4`\n- `1 <= coin[i] <= 10^4`\n\n## Input\n\nThe first line contains `n` and `amount`. The second line contains `n` denominations.\n\n## Output\n\nA single integer: the fewest coins, or `-1`.",
+    "editorialMarkdown": "Let `dp[x]` be the fewest coins summing to exactly `x`, with `dp[0] = 0` and everything else unreachable. For each `x` ascending and each coin `c <= x`, relax `dp[x] = min(dp[x], dp[x-c] + 1)`.\n\nGreedy fails here, and it is worth seeing why: with coins `{1, 3, 4}` and amount `6`, taking the largest first gives `4 + 1 + 1`, three coins, while `3 + 3` is two. Greedy is correct only for denominations with a specific structure, and a general judge will not give you those.\n\nUse a sentinel larger than any real answer for \"unreachable\" and check for it at the end rather than mixing it into the arithmetic.\n\n**Complexity:** O(n * amount) time, O(amount) space.",
+    "examples": [
+      {
+        "input": "3 11\n1 2 5",
+        "output": "3",
+        "explanation": "5 + 5 + 1."
+      },
+      {
+        "input": "1 3\n2",
+        "output": "-1",
+        "explanation": "An odd amount cannot be made from twos."
+      }
+    ]
+  },
+  {
+    "slug": "subsets-and-sums",
+    "statementMarkdown": "Given `n` integers, count how many **distinct** values can be written as the sum of a subset of them.\n\nThe empty subset sums to `0` and counts.\n\n## Constraints\n\n- `1 <= n <= 20`\n- `1 <= a[i] <= 1000`\n\n## Input\n\nThe first line contains `n`. The second line contains `n` integers.\n\n## Output\n\nA single integer: the number of distinct achievable sums.",
+    "editorialMarkdown": "Two solutions, and the choice is a lesson in reading constraints.\n\nEnumerating all `2^n` subsets and collecting their sums in a set is `2^20`, about a million — fine here, and the direct reading of the problem.\n\nThe better solution is a reachability set over sums: start with `{0}`, and for each value add it to everything already reachable. That is O(n * S) where `S` is the total, which for these limits is 20 * 20000 and beats the subset enumeration outright. It also keeps working when `n` grows past 20, which the exponential version does not.\n\nDistinctness is the point: `{1, 1}` reaches only `0, 1, 2` — three sums from four subsets.\n\n**Complexity:** O(n * sum) time and O(sum) space with the reachability set.",
+    "examples": [
+      {
+        "input": "3\n1 2 3",
+        "output": "7",
+        "explanation": "0 through 6 are all reachable, which is seven values."
+      },
+      {
+        "input": "2\n1 1",
+        "output": "3",
+        "explanation": "0, 1 and 2 — the two subsets summing to 1 count once."
+      }
+    ]
+  },
+  {
+    "slug": "palindromic-substrings-count",
+    "statementMarkdown": "Count the palindromic substrings of a string. Substrings at different positions are counted separately even if they are equal as text.\n\nEvery single character is a palindrome.\n\n## Constraints\n\n- The string is 1 to 2000 lowercase letters.\n\n## Input\n\nOne line containing the string.\n\n## Output\n\nA single integer: the count.",
+    "editorialMarkdown": "Expand around centres. There are `2n - 1` of them — `n` single characters and `n - 1` gaps between them — and from each, walk outwards while the characters match, counting one palindrome per successful step. That is O(n^2), which is comfortable at `n = 2000`.\n\nDo not forget the even-length centres. A solution that only expands around characters misses `aa` entirely, and on many inputs it still looks plausible, which makes it a slow bug to find.\n\nManacher's algorithm does this in O(n) and is the right answer at larger limits.\n\n**Complexity:** O(n^2) time, O(1) extra space.",
+    "examples": [
+      {
+        "input": "abc",
+        "output": "3",
+        "explanation": "Only the three single characters."
+      },
+      {
+        "input": "aaa",
+        "output": "6",
+        "explanation": "Three of length 1, two of length 2, one of length 3."
+      }
+    ]
+  },
+  {
+    "slug": "shortest-path-in-a-grid",
+    "statementMarkdown": "Find the fewest steps from the top-left cell to the bottom-right cell of a grid, moving up, down, left or right. `#` cells are walls and cannot be entered.\n\nReport `-1` if the destination is unreachable. The start and destination may themselves be walls, in which case the answer is `-1`.\n\n## Constraints\n\n- `1 <= r, c <= 500`\n\n## Input\n\nThe first line contains `r` and `c`. Each of the next `r` lines contains `c` characters, each `.` or `#`.\n\n## Output\n\nA single integer: the number of steps, or `-1`. A `1 x 1` open grid needs `0` steps.",
+    "editorialMarkdown": "Breadth-first search. Every move costs the same, so the first time BFS reaches a cell it has reached it by a shortest path — that is the property that makes a queue sufficient and a priority queue unnecessary.\n\nMark a cell as visited when you **enqueue** it, not when you dequeue it. Marking on dequeue lets the same cell enter the queue several times before it is first processed, and on an open 500x500 grid that is enough to matter.\n\nCheck the start and destination for walls before starting, and handle the `1 x 1` grid, where the answer is `0` rather than `1`.\n\n**Complexity:** O(r c) time and space.",
+    "examples": [
+      {
+        "input": "3 3\n...\n.#.\n...",
+        "output": "4",
+        "explanation": "Around the wall in four steps."
+      },
+      {
+        "input": "2 2\n.#\n#.",
+        "output": "-1",
+        "explanation": "The destination is walled off."
+      }
+    ]
+  },
+  {
+    "slug": "dijkstra-on-a-weighted-grid",
+    "statementMarkdown": "Each cell of a grid holds a digit: the cost of entering it. Starting at the top-left cell, move up, down, left or right to reach the bottom-right cell as cheaply as possible.\n\nThe cost of a path is the sum of the digits of the cells entered. The starting cell is not entered, so its digit is not counted.\n\n## Constraints\n\n- `1 <= r, c <= 300`\n- Every cell holds a digit `0` to `9`.\n\n## Input\n\nThe first line contains `r` and `c`. Each of the next `r` lines contains `c` digits with no separators.\n\n## Output\n\nA single integer: the minimum total cost. For a `1 x 1` grid the answer is `0`.",
+    "editorialMarkdown": "Dijkstra with a priority queue over cells. Steps have different costs now, so BFS no longer works — it would return the path with the fewest cells rather than the cheapest one.\n\nPop the cheapest unfinalised cell, and skip it if the distance you popped is worse than the best already recorded for it; that lazy-deletion check is what lets you push duplicates instead of implementing decrease-key.\n\nCost is charged on entry, so the start contributes nothing and the destination does. A grid of zeros costs `0`, which is a useful case to test against an implementation that charges on exit instead.\n\n**Complexity:** O(r c log(r c)) time.",
+    "examples": [
+      {
+        "input": "3 3\n123\n456\n789",
+        "output": "20",
+        "explanation": "Across the top then down the right edge: 2 + 3 + 6 + 9. The starting 1 is free."
+      },
+      {
+        "input": "1 1\n7",
+        "output": "0",
+        "explanation": "The starting cell is never entered, so nothing is charged."
+      }
+    ]
+  },
+  {
+    "slug": "word-ladder-length",
+    "statementMarkdown": "Transform `begin` into `end` by changing one letter at a time, where every intermediate word must appear in the given dictionary.\n\nReport the number of words in the shortest such sequence, counting both ends. Report `0` if no sequence exists.\n\n`begin` need not be in the dictionary; `end` must be.\n\n## Constraints\n\n- `1 <= n <= 5000`\n- All words have the same length, between 1 and 10 lowercase letters.\n\n## Input\n\nThe first line contains `begin` and `end`. The second line contains `n`. Each of the next `n` lines contains one dictionary word.\n\n## Output\n\nA single integer: the length of the shortest sequence, or `0`.",
+    "editorialMarkdown": "This is an unweighted shortest path, so BFS from `begin`. The only question is how to find a word's neighbours cheaply.\n\nComparing every pair of words is O(n^2 L). Better: for each position, replace the letter with each of the 26 alternatives and look the result up in a hash set. That is O(26 L) per word regardless of how large the dictionary is, and it is what makes the difference at `n = 5000`.\n\nRemove a word from the set as you enqueue it. Leaving it in lets the same word be enqueued from several predecessors in the same layer, which does not change the answer but does change the running time.\n\nIf `end` is not in the dictionary the answer is `0`, and checking that first saves a pointless search.\n\n**Complexity:** O(n L * 26) time.",
+    "examples": [
+      {
+        "input": "hit cog\n6\nhot\ndot\ndog\nlot\nlog\ncog",
+        "output": "5",
+        "explanation": "hit -> hot -> dot -> dog -> cog is five words."
+      },
+      {
+        "input": "hit cog\n5\nhot\ndot\ndog\nlot\nlog",
+        "output": "0",
+        "explanation": "cog is not in the dictionary, so it cannot be reached."
+      }
+    ]
+  },
+  {
+    "slug": "course-schedule-order",
+    "statementMarkdown": "There are `n` courses numbered `1..n`. Each prerequisite pair `u v` means `u` must be taken before `v`.\n\nOutput the lexicographically smallest order in which all courses can be taken, or `IMPOSSIBLE` if the prerequisites are cyclic.\n\n## Constraints\n\n- `1 <= n <= 10^5`\n- `0 <= m <= 2 * 10^5`\n\n## Input\n\nThe first line contains `n` and `m`. Each of the next `m` lines contains `u` and `v`.\n\n## Output\n\nThe `n` course numbers in order, space-separated on one line, or `IMPOSSIBLE`.",
+    "editorialMarkdown": "Kahn's algorithm: repeatedly take a course with no unmet prerequisites, output it, and decrement its successors' in-degrees.\n\n\"Lexicographically smallest\" is what fixes the choice when several courses are available at once — so the ready set must be a **min-heap**, not a queue. A plain queue produces a valid topological order that is usually not the smallest one, and that is the whole difficulty of this problem over an ordinary topological sort.\n\nIf fewer than `n` courses come out, what remains is a cycle, and the answer is `IMPOSSIBLE`.\n\n**Complexity:** O((n + m) log n) time.",
+    "examples": [
+      {
+        "input": "4 3\n1 2\n1 3\n3 4",
+        "output": "1 2 3 4",
+        "explanation": "After 1, both 2 and 3 are available; 2 is smaller."
+      },
+      {
+        "input": "2 2\n1 2\n2 1",
+        "output": "IMPOSSIBLE",
+        "explanation": "Each course requires the other."
+      }
+    ]
+  },
+  {
+    "slug": "minimum-spanning-network",
+    "statementMarkdown": "Given a weighted undirected graph, find the total weight of a minimum spanning tree.\n\nReport `-1` if the graph is not connected.\n\n## Constraints\n\n- `1 <= n <= 10^5`\n- `0 <= m <= 2 * 10^5`\n- `1 <= w <= 10^9`\n\n## Input\n\nThe first line contains `n` and `m`. Each of the next `m` lines contains an edge `u v w`.\n\n## Output\n\nA single integer: the total weight, or `-1`.",
+    "editorialMarkdown": "Kruskal's algorithm: sort the edges by weight and add each one whose endpoints are not already connected, tracked with a disjoint-set union.\n\nCount the edges you accept. A spanning tree on `n` vertices has exactly `n - 1`; ending with fewer means the graph was disconnected. That count is a cleaner test than a separate connectivity pass, and it costs nothing.\n\nThe total reaches `10^5 * 10^9`, which overflows 32 bits. Accumulate in 64.\n\nA single vertex is trivially spanned by zero edges, so `n = 1` answers `0`, not `-1`.\n\n**Complexity:** O(m log m) time, dominated by the sort.",
+    "examples": [
+      {
+        "input": "4 5\n1 2 1\n2 3 2\n3 4 3\n1 4 10\n1 3 4",
+        "output": "6",
+        "explanation": "Edges of weight 1, 2 and 3 connect all four vertices."
+      },
+      {
+        "input": "3 1\n1 2 5",
+        "output": "-1",
+        "explanation": "Vertex 3 is unreachable."
+      }
+    ]
+  },
+  {
+    "slug": "max-flow-bottleneck",
+    "statementMarkdown": "Each pipe in a network has a capacity. The capacity of a route is its narrowest pipe.\n\nFind the widest route from node `1` to node `n` — that is, maximise the minimum capacity along the route. Report `-1` if no route exists.\n\n## Constraints\n\n- `2 <= n <= 10^5`\n- `0 <= m <= 2 * 10^5`\n- `1 <= c <= 10^9`\n- Pipes are undirected.\n\n## Input\n\nThe first line contains `n` and `m`. Each of the next `m` lines contains a pipe `u v c`.\n\n## Output\n\nA single integer: the widest route's capacity, or `-1`.",
+    "editorialMarkdown": "This is Dijkstra with the operations swapped. Where the shortest-path version keeps the smallest total and combines with `+`, this one keeps the **largest bottleneck** and combines with `min`: relax to `min(best[u], c)` and pop the largest first with a max-heap.\n\nThe same greedy argument holds — once a node is popped it can never be reached more widely later — so the algorithm is correct for the same reason.\n\nThere is a second solution worth seeing: sort the pipes by capacity descending and union them into a DSU until `1` and `n` connect. The capacity of the pipe that joined them is the answer. It is the maximum spanning tree read from a different angle.\n\nDespite the title, no flow algorithm is needed. Widest path and maximum flow are different problems, and this is the former.\n\n**Complexity:** O((n + m) log n) time.",
+    "examples": [
+      {
+        "input": "4 4\n1 2 5\n2 4 3\n1 3 2\n3 4 8",
+        "output": "3",
+        "explanation": "Via 2 the narrowest pipe is 3; via 3 it is 2."
+      },
+      {
+        "input": "2 0",
+        "output": "-1",
+        "explanation": "No route exists."
+      }
+    ]
+  },
+  {
+    "slug": "matrix-chain-multiplication",
+    "statementMarkdown": "Given a chain of matrices where the `i`-th has dimensions `d[i-1] x d[i]`, find the fewest scalar multiplications needed to compute the product.\n\nMultiplying a `p x q` matrix by a `q x r` matrix costs `p * q * r`.\n\n## Constraints\n\n- `1 <= n <= 200`\n- `1 <= d[i] <= 500`\n\n## Input\n\nThe first line contains `n`, the number of matrices. The second line contains `n + 1` dimensions.\n\n## Output\n\nA single integer: the minimum number of scalar multiplications.",
+    "editorialMarkdown": "Interval DP. Let `dp[i][j]` be the cheapest way to multiply matrices `i..j`. Try every split point `k`, paying `dp[i][k] + dp[k+1][j] + d[i-1]*d[k]*d[j]`, and take the minimum.\n\nIterate by increasing interval **length**, so both halves are already solved when you need them. Getting that loop order wrong is the usual bug, and it reads perfectly plausibly.\n\nA single matrix costs `0` — there is nothing to multiply.\n\nThe total reaches 500^3 times 200 splits, well past 32 bits. Use 64-bit arithmetic.\n\n**Complexity:** O(n^3) time, O(n^2) space.",
+    "examples": [
+      {
+        "input": "3\n10 30 5 60",
+        "output": "4500",
+        "explanation": "(A*B)*C costs 1500 + 3000; A*(B*C) costs 9000 + 18000."
+      },
+      {
+        "input": "1\n5 7",
+        "output": "0",
+        "explanation": "One matrix needs no multiplication."
+      }
+    ]
+  },
+  {
+    "slug": "knapsack-with-bitmask",
+    "statementMarkdown": "Given `n` items with weights and values, and a knapsack of capacity `W`, choose a subset of maximum total value whose total weight does not exceed `W`.\n\nEach item may be taken at most once.\n\n## Constraints\n\n- `1 <= n <= 20`\n- `1 <= W <= 10^9`\n- `1 <= weight[i], value[i] <= 10^9`\n\n## Input\n\nThe first line contains `n` and `W`. Each of the next `n` lines contains `weight[i]` and `value[i]`.\n\n## Output\n\nA single integer: the maximum total value.",
+    "editorialMarkdown": "The usual `dp[capacity]` table is useless here: `W` is `10^9`, so the table cannot be allocated. The constraint that matters is `n <= 20`, and it is pointing at subset enumeration — `2^20` is about a million.\n\nIterate over all `2^n` bitmasks, sum the weights and values of the set bits, and keep the best that fits. Done directly that is `2^n * n`, around 20 million, which is fine.\n\nMeet in the middle does better and is the intended lesson at larger `n`: split the items in half, enumerate `2^(n/2)` subsets of each, sort one side by weight with a running maximum of value, and binary search it for each subset of the other. That is `2^(n/2) log` instead of `2^n`.\n\nTotals reach `20 * 10^9`, so accumulate in 64 bits.\n\n**Complexity:** O(2^n * n) enumerating directly, O(2^(n/2) * n) meeting in the middle.",
+    "examples": [
+      {
+        "input": "3 5\n2 3\n3 4\n4 5",
+        "output": "7",
+        "explanation": "Items 1 and 2 weigh 5 and are worth 7."
+      },
+      {
+        "input": "2 1\n5 100\n6 200",
+        "output": "0",
+        "explanation": "Nothing fits."
+      }
+    ]
+  },
+  {
+    "slug": "range-sum-queries-mutable",
+    "statementMarkdown": "Maintain an array under two operations:\n\n- `1 i v` — set position `i` to `v`\n- `2 l r` — report the sum of positions `l..r` inclusive\n\nPositions are 1-based.\n\n## Constraints\n\n- `1 <= n, q <= 10^5`\n- `-10^9 <= a[i], v <= 10^9`\n\n## Input\n\nThe first line contains `n` and `q`. The second line contains `n` integers. Each of the next `q` lines contains one operation.\n\n## Output\n\nOne line per type-2 operation.",
+    "editorialMarkdown": "A Fenwick tree over prefix sums, or a segment tree — either is O(log n) per operation, and the Fenwick tree is a dozen lines.\n\nThe point-assignment form is the detail that catches people out: a Fenwick tree adds deltas, so an assignment is an add of `v - a[i]`, and you must keep the plain array alongside to know the old value. Adding `v` directly is silently wrong on the second update to the same position.\n\nThe prefix-sum array everyone reaches for first is O(1) per query but O(n) per update, which is `10^10` operations in the worst case here. That trade is exactly what this problem exists to make you feel.\n\nSums reach `10^5 * 10^9`, so use 64-bit.\n\n**Complexity:** O((n + q) log n) time.",
+    "examples": [
+      {
+        "input": "5 3\n1 2 3 4 5\n2 1 5\n1 3 10\n2 2 4",
+        "output": "15\n16",
+        "explanation": "The whole array sums to 15; after setting position 3 to 10, 2 + 10 + 4 = 16."
+      },
+      {
+        "input": "1 1\n7\n2 1 1",
+        "output": "7",
+        "explanation": "A single element."
+      }
+    ]
+  },
+  {
+    "slug": "segment-tree-with-lazy-propagation",
+    "statementMarkdown": "Maintain an array under two operations:\n\n- `1 l r v` — add `v` to every position in `l..r`\n- `2 l r` — report the sum of positions `l..r`\n\nPositions are 1-based.\n\n## Constraints\n\n- `1 <= n, q <= 10^5`\n- `-10^9 <= a[i], v <= 10^9`\n\n## Input\n\nThe first line contains `n` and `q`. The second line contains `n` integers. Each of the next `q` lines contains one operation.\n\n## Output\n\nOne line per type-2 operation.",
+    "editorialMarkdown": "Range updates are what make a plain segment tree insufficient: touching every leaf in the range is O(n) per operation.\n\nLazy propagation fixes it. A node fully inside the update range records a pending addition and stops; its children learn about it only when a later query descends through them. A pending `v` over a node covering `len` positions adds `v * len` to that node's sum, which is why the node's span has to be known at update time.\n\nPush pending values down before descending, and recompute a node's sum from its children on the way back up. Doing one and not the other produces answers that are right until they suddenly are not.\n\nSums reach roughly `10^5 * 10^9 * 2`, so 64-bit throughout.\n\n**Complexity:** O((n + q) log n) time.",
+    "examples": [
+      {
+        "input": "5 3\n1 2 3 4 5\n1 2 4 10\n2 1 5\n2 3 3",
+        "output": "45\n13",
+        "explanation": "Adding 10 to positions 2..4 raises the total from 15 to 45; position 3 becomes 13."
+      },
+      {
+        "input": "3 2\n0 0 0\n1 1 3 5\n2 1 3",
+        "output": "15",
+        "explanation": "Five added to each of three positions."
+      }
+    ]
+  },
+  {
+    "slug": "lowest-common-ancestor-queries",
+    "statementMarkdown": "Given a rooted tree on `n` nodes, answer queries for the lowest common ancestor of two nodes.\n\nThe tree is rooted at node `1`. A node is considered an ancestor of itself.\n\n## Constraints\n\n- `1 <= n, q <= 10^5`\n- `parent[i] < i` for every node `i > 1`, so the input is always a valid tree.\n\n## Input\n\nThe first line contains `n` and `q`. The second line contains `n - 1` integers: the parents of nodes `2..n`. Each of the next `q` lines contains two nodes `u v`.\n\n## Output\n\nOne line per query: the LCA of `u` and `v`.",
+    "editorialMarkdown": "Binary lifting. Precompute `up[k][v]`, the `2^k`-th ancestor of `v`, and the depth of every node. To answer a query, lift the deeper node to the shallower one's depth, then lift both together by descending powers of two, taking each jump only when it lands them on *different* nodes. They finish as children of the LCA.\n\nThe \"different nodes\" test is what makes this work: jumping while they are equal would overshoot past the answer. After the loop the answer is `up[0][u]`, not `u`.\n\nHandle the case where one node is already the ancestor of the other — after the first lift they are equal, and the answer is that node.\n\n`parent[i] < i` means depths and lifting tables can be filled by a single left-to-right pass, with no traversal needed.\n\n**Complexity:** O(n log n) preprocessing, O(log n) per query.",
+    "examples": [
+      {
+        "input": "5 3\n1 1 2 2\n4 5\n4 3\n2 4",
+        "output": "2\n1\n2",
+        "explanation": "4 and 5 are both children of 2; 4 and 3 meet only at the root; 2 is its own ancestor."
+      },
+      {
+        "input": "2 1\n1\n1 2",
+        "output": "1",
+        "explanation": "The root is an ancestor of every node."
+      }
+    ]
+  },
+  {
+    "slug": "binary-lifting-ancestors",
+    "statementMarkdown": "Given a rooted tree on `n` nodes, answer queries for the `k`-th ancestor of a node.\n\nThe tree is rooted at node `1`. The 1st ancestor is the parent. Report `-1` when the node has fewer than `k` ancestors.\n\n## Constraints\n\n- `1 <= n, q <= 10^5`\n- `1 <= k <= 10^9`\n- `parent[i] < i` for every node `i > 1`.\n\n## Input\n\nThe first line contains `n` and `q`. The second line contains `n - 1` integers: the parents of nodes `2..n`. Each of the next `q` lines contains `v` and `k`.\n\n## Output\n\nOne line per query: the `k`-th ancestor of `v`, or `-1`.",
+    "editorialMarkdown": "Precompute `up[j][v]`, the `2^j`-th ancestor of `v`, using `up[j][v] = up[j-1][up[j-1][v]]` — halfway, then halfway again. Then decompose `k` into bits and take one jump per set bit.\n\n`k` can be `10^9`, far past any depth, so walking up one parent at a time is `10^9` steps per query. The whole point is turning that into 30.\n\nUse `0` as the \"no such ancestor\" sentinel inside the table so that jumping off the root stays off it, and translate to `-1` only when printing. Mixing the sentinel into the table as `-1` means indexing with it, which is a crash rather than an answer.\n\n**Complexity:** O(n log n) preprocessing, O(log k) per query.",
+    "examples": [
+      {
+        "input": "5 3\n1 1 2 2\n4 1\n4 2\n4 3",
+        "output": "2\n1\n-1",
+        "explanation": "4's parent is 2, its grandparent is 1, and there is nothing above the root."
+      },
+      {
+        "input": "2 1\n1\n2 1000000000",
+        "output": "-1",
+        "explanation": "k far exceeds the depth."
+      }
+    ]
+  },
+  {
+    "slug": "trie-autocomplete",
+    "statementMarkdown": "Given a dictionary of words, answer queries asking how many dictionary words start with a given prefix.\n\nA word is a prefix of itself.\n\n## Constraints\n\n- `1 <= n, q <= 10^5`\n- Words and prefixes are 1 to 20 lowercase letters.\n- The total length of all words is at most `10^6`.\n\n## Input\n\nThe first line contains `n` and `q`. Each of the next `n` lines contains a word. Each of the next `q` lines contains a prefix.\n\n## Output\n\nOne line per query: the number of matching words.",
+    "editorialMarkdown": "Build a trie and store, at each node, how many words pass through it. Insertion increments that counter along the word's path; a query walks the prefix and reads the counter at the node it lands on, or `0` if the walk falls off the trie.\n\nThe counter has to be maintained during insertion rather than computed by a subtree sum afterwards — the sum is correct but throws away the reason to build a trie in the first place.\n\nDuplicate words in the dictionary count separately, which falls out naturally from incrementing on every insertion.\n\nChecking every word against every prefix is O(n q L), around `2 * 10^{10}` here. The trie makes each query O(L), independent of `n`.\n\n**Complexity:** O(total length) to build, O(L) per query.",
+    "examples": [
+      {
+        "input": "4 3\napple\napp\napply\nbanana\napp\nappl\nb",
+        "output": "3\n2\n1",
+        "explanation": "app matches apple, app and apply; appl matches apple and apply."
+      },
+      {
+        "input": "1 1\nabc\nabcd",
+        "output": "0",
+        "explanation": "The prefix is longer than the only word."
+      }
+    ]
+  },
+  {
+    "slug": "suffix-automaton-substrings",
+    "statementMarkdown": "Count the distinct non-empty substrings of a string.\n\n## Constraints\n\n- The string is 1 to 10^5 lowercase letters.\n\n## Input\n\nOne line containing the string.\n\n## Output\n\nA single integer: the number of distinct non-empty substrings.",
+    "editorialMarkdown": "A string of length `n` has `n(n+1)/2` substrings counted with repetition — around `5 * 10^9` here — so they cannot be enumerated. Only the distinct count is wanted, and the structure that gives it directly is a suffix automaton.\n\nBuild it in O(n), then sum `len(v) - len(link(v))` over every state. Each state represents a set of substrings that end at the same positions, and that difference is exactly how many of them the state contributes — so the sum counts every distinct substring once, by construction.\n\nA suffix array with LCPs gives the same answer as `n(n+1)/2 - sum(lcp)`, and is easier to get right if you already have one.\n\nThe answer reaches `5 * 10^9`, so it does not fit in 32 bits.\n\n**Complexity:** O(n) time and space with a suffix automaton.",
+    "examples": [
+      {
+        "input": "abc",
+        "output": "6",
+        "explanation": "a, b, c, ab, bc, abc."
+      },
+      {
+        "input": "aaa",
+        "output": "3",
+        "explanation": "a, aa and aaa — the repeats are not counted again."
+      }
+    ]
+  },
+  {
+    "slug": "digit-dp-sum-of-digit-sums",
+    "statementMarkdown": "Compute the total of the digit sums of every integer from `L` to `R` inclusive.\n\n## Constraints\n\n- `1 <= L <= R <= 10^18`\n\n## Input\n\nOne line containing `L` and `R`.\n\n## Output\n\nA single integer: the total.",
+    "editorialMarkdown": "The range holds up to `10^18` numbers, so they cannot be iterated. Define `f(x)` as the total digit sum of everything from `1` to `x`, and answer `f(R) - f(L-1)`.\n\n`f` is a digit DP: walk the decimal places of `x`, and at each position count how often each digit value appears across all smaller numbers. The standard formulation carries a \"tight\" flag saying whether the prefix built so far equals `x`'s prefix, since that is what restricts the current digit's range.\n\nThe counting version — for each place, `high * 10^p` complete cycles contribute `45 * 10^p` each, plus a partial cycle — is closed-form and avoids recursion entirely.\n\nThe total reaches roughly `10^18 * 9 * 19`, which overflows signed 64-bit. Use a wider type, or Python.\n\n**Complexity:** O(log R) time.",
+    "examples": [
+      {
+        "input": "1 10",
+        "output": "46",
+        "explanation": "1+2+...+9 = 45, plus 1 for the digits of 10."
+      },
+      {
+        "input": "5 5",
+        "output": "5",
+        "explanation": "A single number."
+      }
+    ]
+  },
+  {
+    "slug": "counting-lattice-triangles",
+    "statementMarkdown": "Given `n` distinct points in the plane, count the triples that form a triangle with non-zero area.\n\nThree collinear points do not form a triangle.\n\n## Constraints\n\n- `3 <= n <= 300`\n- `-10^9 <= x, y <= 10^9`\n\n## Input\n\nThe first line contains `n`. Each of the next `n` lines contains a point `x y`.\n\n## Output\n\nA single integer: the number of triangles.",
+    "editorialMarkdown": "There are `C(n, 3)` triples — about 4.5 million at `n = 300` — so checking each directly is feasible. Three points are collinear when the cross product `(b-a) x (c-a)` is zero.\n\nThe better solution counts the collinear triples instead and subtracts. Fix each point, sort the others by the direction to it, group equal directions, and add `C(g, 2)` per group; each collinear triple is counted once per point it contains, so divide the total by three. That is O(n^2 log n).\n\nCompute the cross product in 64-bit integers and never in floating point. Coordinates at `10^9` make the product `10^18`, and a `double` carries 53 bits of mantissa — so nearly-collinear points would be judged collinear, silently and only on some inputs.\n\n**Complexity:** O(n^3) directly, O(n^2 log n) by counting collinear triples.",
+    "examples": [
+      {
+        "input": "4\n0 0\n1 0\n2 0\n0 1",
+        "output": "3",
+        "explanation": "The three collinear points on the x-axis contribute nothing; each pairs with (0,1)."
+      },
+      {
+        "input": "3\n0 0\n1 1\n2 2",
+        "output": "0",
+        "explanation": "All three are collinear."
+      }
+    ]
+  },
+  {
+    "slug": "convex-hull-perimeter",
+    "statementMarkdown": "Given `n` points, compute the perimeter of their convex hull.\n\nIf all points are collinear the hull degenerates to a segment, and its perimeter is twice the distance between the two extreme points. If all points coincide the perimeter is `0`.\n\n## Constraints\n\n- `1 <= n <= 10^5`\n- `-10^6 <= x, y <= 10^6`\n- Points may repeat.\n\n## Input\n\nThe first line contains `n`. Each of the next `n` lines contains a point `x y`.\n\n## Output\n\nThe perimeter, printed with exactly 6 decimal places. An absolute or relative error up to `10^-6` is accepted.",
+    "editorialMarkdown": "Andrew's monotone chain. Sort the points by `x` then `y`, build the lower hull left to right and the upper hull right to left, popping while the last three make a non-left turn, then join the two chains.\n\nUse a strict comparison when popping — `cross <= 0` — so collinear points are removed from the hull. Keeping them does not change the perimeter, but it does change the vertex count, and it is the difference between the degenerate cases working and not.\n\nAll the geometry is integer: the cross product used for orientation needs no floating point, and coordinates at `10^6` keep it inside 64 bits. Only the final distances are floating point, which is where the tolerance in the output comes from.\n\nDeduplicate first. Repeated points break the turn test in ways that are hard to see.\n\n**Complexity:** O(n log n) time, dominated by the sort.",
+    "examples": [
+      {
+        "input": "4\n0 0\n1 0\n1 1\n0 1",
+        "output": "4.000000",
+        "explanation": "The unit square."
+      },
+      {
+        "input": "3\n0 0\n2 0\n1 0",
+        "output": "4.000000",
+        "explanation": "Collinear: the hull is a segment of length 2, traversed twice."
+      }
+    ]
   }
 ]
