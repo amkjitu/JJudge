@@ -38,6 +38,9 @@ public class ProblemStatementSeeder {
 
     private static final Logger log = LoggerFactory.getLogger(ProblemStatementSeeder.class);
 
+    /** Used only in the "already populated" log line. */
+    private static final String WHAT = "problem statement";
+
     private static final String RESOURCE = "mongo/problem-statements.json";
 
     private final ProblemStatementRepository repository;
@@ -50,6 +53,21 @@ public class ProblemStatementSeeder {
 
     @EventListener(ApplicationReadyEvent.class)
     public void seed() {
+        // First run only. These documents are editable from the admin UI, and re-seeding on every
+        // startup would silently revert an editor's work on the next deploy - a data-loss bug that
+        // looks like the save button not working. The bundled JSON is the starting catalogue, not
+        // the source of truth for a database that has since been used.
+        //
+        // The check is "is the collection empty" rather than a per-document merge because a
+        // half-seeded collection is not a state this can reason about: a problem deleted on
+        // purpose would reappear, which is the same bug wearing a different hat.
+        long existing = repository.count();
+        if (existing > 0) {
+            log.info("MongoDB already holds {} {} documents; leaving them alone",
+                    existing, WHAT);
+            return;
+        }
+
         List<StatementDocument> statements;
         try (InputStream in = new ClassPathResource(RESOURCE).getInputStream()) {
             statements = List.of(objectMapper.readValue(in, StatementDocument[].class));

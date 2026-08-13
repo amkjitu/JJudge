@@ -10,6 +10,7 @@ import com.codearena.api.web.dto.CreateSubmissionRequest;
 import com.codearena.api.web.dto.SubmissionResponse;
 import com.codearena.api.web.error.ResourceNotFoundException;
 import com.codearena.api.web.mapper.SubmissionMapper;
+import com.codearena.common.domain.Language;
 import com.codearena.common.domain.SubmissionStatus;
 import com.codearena.common.event.SubmissionCreated;
 import org.slf4j.Logger;
@@ -67,6 +68,20 @@ public class SubmissionService {
      */
     @Transactional
     public SubmissionResponse create(String username, CreateSubmissionRequest request) {
+        // Refused here rather than left for the judge. A language with no toolchain produces no
+        // verdict at all: the judge throws, Kafka retries and abandons the record, and the
+        // submission sits at QUEUED for ever while its author waits. Rejecting it costs one
+        // 400 and tells them the truth immediately.
+        //
+        // At the service rather than on the DTO because the browser form is not the only way in -
+        // the REST API takes the same request, and a validation annotation on the UI form would
+        // leave that route open.
+        if (!request.language().isExecutable()) {
+            throw new IllegalArgumentException(
+                    request.language() + " cannot be judged: the runner has no toolchain for it. "
+                            + "Submit in one of " + Language.executable() + ".");
+        }
+
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User", username));
         Problem problem = problemService.getBySlug(request.problemSlug());

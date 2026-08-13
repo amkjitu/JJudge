@@ -14,6 +14,17 @@
         </ol>
     </nav>
 
+    <!--/*
+      Only when editing. A problem that does not exist yet has nowhere to put a statement or a
+      test case, and offering the tabs would lead somewhere broken.
+    */-->
+    <div class="row justify-content-center" th:if="${editing}">
+        <div class="col-lg-8">
+            <!--/* ${form.slug}, not *{slug}: th:object is scoped to the form below. */-->
+            <div th:replace="~{admin/fragments :: authoringNav(${form.slug}, 'details')}"></div>
+        </div>
+    </div>
+
     <div class="row justify-content-center">
         <div class="col-lg-8">
             <div class="card">

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<!--/* Pieces shared by the admin authoring pages. Nothing here renders on its own. */-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+
+<!--/*
+  Tabs across the three things that make up one problem. Editing a problem means moving between
+  them, and without this the only route from the statement to its test cases is back through the
+  list - which is where the gap between "I wrote the problem" and "it can be judged" hides.
+*/-->
+<ul th:fragment="authoringNav(slug, active)" class="nav nav-tabs mb-3">
+    <li class="nav-item">
+        <a class="nav-link" th:classappend="${active == 'details'} ? 'active'"
+           th:href="@{/admin/problems/{slug}/edit(slug=${slug})}">Details</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" th:classappend="${active == 'statement'} ? 'active'"
+           th:href="@{/admin/problems/{slug}/statement(slug=${slug})}">Statement</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" th:classappend="${active == 'test-cases'} ? 'active'"
+           th:href="@{/admin/problems/{slug}/test-cases(slug=${slug})}">Test cases</a>
+    </li>
+</ul>
+
+<!--/*
+  What is still missing before this problem can be judged properly, and where the statement and
+  the test cases disagree.
+
+  Shown on both editors rather than only where the fault lies, because the two halves are edited
+  on separate pages and a mismatch belongs to neither of them alone.
+*/-->
+<div th:fragment="authoringStatus(status)" th:if="${status != null}">
+
+    <div th:if="${!status.hasStatement()}" class="alert alert-warning py-2 small">
+        <strong>No statement.</strong> The problem page shows nothing but the title and limits,
+        so nobody can know what to write or what format to read and print.
+    </div>
+
+    <div th:if="${!status.judgedForReal()}" class="alert alert-warning py-2 small">
+        <strong>No test cases.</strong> Submissions to this problem are not run &mdash; the judge
+        falls back to a verdict derived from a hash of the code, labelled <em>Simulated</em>, which
+        says nothing about whether the code is correct.
+    </div>
+
+    <div th:if="${status.judgedForReal() and status.sampleCount() == 0}"
+         class="alert alert-warning py-2 small">
+        <strong>No samples.</strong> The cases are judged, but none is shown on the problem page,
+        so a reader has nothing to check their understanding against.
+    </div>
+
+    <div th:if="${!status.drift().isEmpty()}" class="alert alert-danger py-2 small">
+        <strong>The statement and the test cases disagree.</strong>
+        <ul class="mb-0 mt-1">
+            <li th:each="complaint : ${status.drift()}" th:text="${complaint}">complaint</li>
+        </ul>
+        Someone reading this problem is being shown one thing and marked against another.
+    </div>
+
+    <div th:if="${status.isComplete()}" class="alert alert-success py-2 small">
+        <strong>Ready.</strong> Submissions are compiled and run against
+        <span th:text="${status.caseCount()}">0</span> case(s),
+        <span th:text="${status.sampleCount()}">0</span> of them shown on the problem page.
+    </div>
+</div>
+
+</body>
+</html>

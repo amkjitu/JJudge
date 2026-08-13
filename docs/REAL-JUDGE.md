@@ -175,9 +175,18 @@ quietly hand out minute-long budgets and call slow code correct.
 
 ### Languages
 
-The runner image carries **Python**, **C++** and **Java**. A submission in any other language is
-not judged and not given a verdict — reporting `CE` would tell someone their correct code does not
-compile, which is false and sends them hunting for a bug they did not write.
+The runner image carries **Python**, **C++** and **Java**, and `Language.isExecutable()` in
+arena-common records which those are. The API refuses a submission in any other language with a
+400, and the judge's toolchain table is asserted against the same flag — so adding a toolchain
+without flipping the flag, or the reverse, fails the build rather than reaching a user.
+
+That gate is not tidiness. The submit form used to offer every value of the enum, including Go
+and JavaScript; a submission in either reached a judge with no toolchain, threw, was retried
+twice by Kafka and abandoned — leaving the submission at `QUEUED` for ever while its author
+waited for a verdict that was never coming.
+
+Reporting `CE` instead would be worse than the hang: it would tell someone their correct code
+does not compile, and send them hunting for a bug they did not write.
 
 Java is run with `-XX:+UseSerialGC -XX:MaxRAMPercentage=75 -Xss64m`, and none of those are
 cosmetic. A parallel collector starts several GC threads for a program that lives half a second,
@@ -195,8 +204,31 @@ mean the same underlying mistake is labelled differently across languages.
 
 ## Test cases
 
-Stored in MongoDB as `problem_test_cases`, one document per problem, keyed by slug. Generated
-rather than hand-written:
+Stored in MongoDB as `problem_test_cases`, one document per problem, keyed by slug.
+
+### Authoring them
+
+**Admin → Problems** has three tabs per problem: *Details*, *Statement* and *Test cases*. The
+second two write straight to MongoDB, so a problem added through the UI is judgeable without
+touching the repository or restarting anything.
+
+The list shows where each problem stands — `No statement`, `Simulated`, `No samples`, `Mismatch`,
+or the case counts — because a catalogue where some problems are executed and others quietly
+simulated cannot be managed from a list showing only titles and ratings. That is precisely how
+thirty problems ended up with no statement at all and nobody noticed.
+
+Case indices are assigned from row order on save rather than typed in. They have to be contiguous
+for "failed on case 4" to mean anything, and maintaining that by hand while inserting a case in
+the middle leaves a gap nobody sees until a verdict cites a case that does not exist.
+
+**The seeders run only when their collection is empty.** The bundled JSON is a starting
+catalogue, not the source of truth for a database that has since been edited — re-seeding on
+every startup would revert an editor's work on the next deploy, which looks like the save button
+not working.
+
+### Generating them
+
+The bundled catalogue is generated rather than hand-written:
 
 ```bash
 python tools/generate_test_cases.py
@@ -212,6 +244,11 @@ every statement's worked examples appear as sample cases with the same output, a
 has both a statement and cases. A statement and its test data are edited at different times by
 different hands, so they drift — and when they do, the platform shows someone one thing and marks
 them against another. The check caught exactly that while the catalogue was being filled in.
+
+The admin editor applies the same rule, but reports rather than refuses: blocking a statement
+save until its matching test case exists would make the two forms impossible to fill in in either
+order. Instead the warning follows the editor around — on the list and on both forms — until it
+is resolved.
 
 **All 40 problems have statements and test cases**, so nothing falls back to simulation on a
 complete database. A problem added without cases still would, with a warning in the judge's log

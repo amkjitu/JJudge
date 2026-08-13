@@ -26,6 +26,22 @@ class LanguageToolchainTest {
         }
 
         @Test
+        @DisplayName("agrees with Language.isExecutable, which is what the API gates on")
+        void agreesWithTheSharedFlag() {
+            // These are two halves of one decision held in two modules. The API refuses a
+            // submission whose language is not executable; the judge refuses to invent a
+            // toolchain for one it lacks. If they disagree, either a user is turned away from a
+            // language that works, or one is accepted and then never judged - and the second
+            // failure is silent, which is why this is asserted rather than trusted.
+            for (Language language : Language.values()) {
+                assertThat(LanguageToolchain.supports(language))
+                        .as("%s: toolchain present but isExecutable says otherwise, or vice versa",
+                                language)
+                        .isEqualTo(language.isExecutable());
+            }
+        }
+
+        @Test
         @DisplayName("returns empty for a language it cannot run, rather than a broken command")
         void unsupportedLanguageIsEmpty() {
             assertThat(LanguageToolchain.forLanguage(Language.GO)).isEmpty();

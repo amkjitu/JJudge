@@ -19,20 +19,47 @@
                 <th scope="col">Slug</th>
                 <th scope="col" class="text-end">Rating</th>
                 <th scope="col" class="text-end">Difficulty</th>
-                <th scope="col" class="text-end" style="width: 12rem">Actions</th>
+                <th scope="col">Authoring</th>
+                <th scope="col" class="text-end" style="width: 18rem">Actions</th>
             </tr>
             </thead>
             <tbody>
-            <tr th:each="problem : ${page.content}">
+            <tr th:each="problem : ${page.content}" th:with="s=${status[problem.slug]}">
                 <td th:text="${problem.title}">Title</td>
                 <td><code th:text="${problem.slug}">slug</code></td>
                 <td class="text-end" th:text="${problem.rating}">1500</td>
                 <td class="text-end">
                     <span th:replace="~{fragments/bits :: difficulty(${problem.difficulty})}"></span>
                 </td>
+                <!--/*
+                  Whether this problem can actually be judged, at a glance. A catalogue where some
+                  problems are executed and others quietly simulated is impossible to manage from
+                  a list that shows only the title and rating - which is exactly how thirty
+                  problems ended up with no statement and nobody noticed.
+                */-->
+                <td class="small">
+                    <span th:if="${!s.hasStatement()}"
+                          class="badge rounded-pill text-bg-warning">No statement</span>
+                    <span th:if="${!s.judgedForReal()}"
+                          class="badge rounded-pill text-bg-warning"
+                          title="Submissions fall back to a simulated verdict">Simulated</span>
+                    <span th:if="${s.judgedForReal() and s.sampleCount() == 0}"
+                          class="badge rounded-pill text-bg-warning">No samples</span>
+                    <span th:if="${!s.drift().isEmpty()}"
+                          class="badge rounded-pill text-bg-danger"
+                          title="A worked example does not match its sample case">Mismatch</span>
+                    <span th:if="${s.isComplete()}" class="text-muted">
+                        <span th:text="${s.caseCount()}">0</span> cases,
+                        <span th:text="${s.sampleCount()}">0</span> shown
+                    </span>
+                </td>
                 <td class="text-end">
                     <a class="btn btn-outline-secondary btn-sm"
                        th:href="@{/admin/problems/{slug}/edit(slug=${problem.slug})}">Edit</a>
+                    <a class="btn btn-outline-secondary btn-sm"
+                       th:href="@{/admin/problems/{slug}/statement(slug=${problem.slug})}">Statement</a>
+                    <a class="btn btn-outline-secondary btn-sm"
+                       th:href="@{/admin/problems/{slug}/test-cases(slug=${problem.slug})}">Cases</a>
                     <!--/*
                       A form, not a link: deleting on GET means any prefetcher or crawler that
                       follows the URL wipes the row. The POST also carries the CSRF token

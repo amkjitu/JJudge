@@ -99,7 +99,9 @@ public class ProblemUiController {
                          Model model) {
 
         model.addAttribute("problem", problemService.getDetail(slug));
-        model.addAttribute("languages", Language.values());
+        // Only what the judge can actually run. Offering a language with no toolchain
+        // invites a submission that never gets a verdict.
+        model.addAttribute("languages", Language.executable());
 
         // Rendered here rather than in the template: Thymeleaf has no Markdown of its own, and
         // the alternative - shipping the raw text and rendering it in the browser - would put

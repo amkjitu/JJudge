@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: page(~{::title}, ~{::main}, ~{::scripts})}"
+      lang="en">
+<head><title th:text="'Test cases · ' + ${problem.title} + ' · CodeArena'">Test cases</title></head>
+<body>
+<main>
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a th:href="@{/admin/problems}">Problems</a></li>
+            <li class="breadcrumb-item" th:text="${problem.slug}">slug</li>
+            <li class="breadcrumb-item active" aria-current="page">Test cases</li>
+        </ol>
+    </nav>
+
+    <div th:replace="~{admin/fragments :: authoringNav(${problem.slug}, 'test-cases')}"></div>
+    <div th:replace="~{admin/fragments :: authoringStatus(${status})}"></div>
+
+    <h1 class="h4 mb-1" th:text="${problem.title}">Title</h1>
+    <p class="text-muted small mb-3">
+        A submission is compiled and run against these in order, stopping at the first failure.
+        Output is compared line by line, ignoring trailing whitespace and trailing blank lines.
+        <strong>A problem with no cases cannot be judged</strong> &mdash; its submissions fall
+        back to a simulated verdict, which says nothing about whether the code is correct.
+    </p>
+
+    <form th:action="@{/admin/problems/{slug}/test-cases(slug=${problem.slug})}"
+          th:object="${form}" method="post">
+
+        <div th:if="${#fields.hasGlobalErrors()}" class="alert alert-danger">
+            <div th:each="err : ${#fields.globalErrors()}" th:text="${err}">error</div>
+        </div>
+
+        <!--/* See problem-statement.html for why the indices use the __${...}__ syntax. */-->
+        <div id="case-rows">
+            <div th:each="c, s : *{cases}" class="card mb-2 case-row">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <!--/*
+                          Positional, not stored. Indices are renumbered from row order on save,
+                          so inserting a case in the middle cannot leave a gap - and "failed on
+                          case 4" always names a case that exists.
+                        */-->
+                        <span class="badge text-bg-light border">Case <span th:text="${s.count}">1</span></span>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox"
+                                   th:field="*{cases[__${s.index}__].sample}"
+                                   th:id="'sample-' + ${s.index}">
+                            <label class="form-check-label small" th:for="'sample-' + ${s.index}">
+                                Sample &mdash; shown on the problem page
+                            </label>
+                        </div>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label small">Input</label>
+                            <textarea class="form-control font-monospace form-control-sm" rows="4"
+                                      th:field="*{cases[__${s.index}__].input}"
+                                      th:classappend="${#fields.hasErrors('cases[__${s.index}__].input')} ? 'is-invalid'"></textarea>
+                            <div th:replace="~{fragments/bits :: fieldError('cases[__${s.index}__].input')}"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small">Expected output</label>
+                            <textarea class="form-control font-monospace form-control-sm" rows="4"
+                                      th:field="*{cases[__${s.index}__].expectedOutput}"
+                                      th:classappend="${#fields.hasErrors('cases[__${s.index}__].expectedOutput')} ? 'is-invalid'"></textarea>
+                            <div th:replace="~{fragments/bits :: fieldError('cases[__${s.index}__].expectedOutput')}"></div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-link text-danger px-0 mt-1 remove-row">
+                        Remove
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <button type="button" id="add-case" class="btn btn-sm btn-outline-secondary mb-4">
+            Add a case
+        </button>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">Save test cases</button>
+            <a class="btn btn-outline-secondary"
+               th:href="@{/problems/{slug}(slug=${problem.slug})}" target="_blank">
+                View the problem page
+            </a>
+        </div>
+    </form>
+
+</main>
+
+<th:block th:fragment="scripts">
+    <script th:src="@{/js/admin-rows.js}"></script>
+    <script>
+        window.arenaRows({container: 'case-rows', rowClass: 'case-row',
+                          addButton: 'add-case', field: 'cases'});
+    </script>
+</th:block>
+</body>
+</html>

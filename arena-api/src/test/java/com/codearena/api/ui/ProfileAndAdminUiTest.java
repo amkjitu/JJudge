@@ -1,6 +1,7 @@
 package com.codearena.api.ui;
 
 import com.codearena.api.service.LeaderboardService;
+import com.codearena.api.service.ProblemAuthoringService;
 import com.codearena.api.service.ProblemFilter;
 import com.codearena.api.service.ProblemService;
 import com.codearena.api.service.TagService;
@@ -30,11 +31,13 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -66,6 +69,9 @@ class ProfileAndAdminUiTest {
 
     @MockBean
     private LeaderboardService leaderboardService;
+
+    @MockBean
+    private ProblemAuthoringService authoringService;
 
     private static UserProfileResponse profile() {
         return new UserProfileResponse(3L, "bob", Role.USER, 1450,
@@ -153,6 +159,10 @@ class ProfileAndAdminUiTest {
         void stubTags() {
             when(tagService.findAllWithPrerequisites())
                     .thenReturn(List.of(new TagResponse(1L, "dp", Set.of())));
+            // The list shows each problem's authoring state; without this the column is empty
+            // rather than absent, and the page still renders.
+            when(authoringService.statusOf(anyList())).thenReturn(Map.of("two-sum",
+                    new ProblemAuthoringService.AuthoringStatus(true, 9, 2, List.of())));
         }
 
         @Test

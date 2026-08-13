@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: page(~{::title}, ~{::main}, ~{::scripts})}"
+      lang="en">
+<head><title th:text="'Statement · ' + ${problem.title} + ' · CodeArena'">Statement</title></head>
+<body>
+<main>
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a th:href="@{/admin/problems}">Problems</a></li>
+            <li class="breadcrumb-item" th:text="${problem.slug}">slug</li>
+            <li class="breadcrumb-item active" aria-current="page">Statement</li>
+        </ol>
+    </nav>
+
+    <div th:replace="~{admin/fragments :: authoringNav(${problem.slug}, 'statement')}"></div>
+    <div th:replace="~{admin/fragments :: authoringStatus(${status})}"></div>
+
+    <h1 class="h4 mb-3" th:text="${problem.title}">Title</h1>
+
+    <form th:action="@{/admin/problems/{slug}/statement(slug=${problem.slug})}"
+          th:object="${form}" method="post">
+
+        <div th:if="${#fields.hasGlobalErrors()}" class="alert alert-danger">
+            <div th:each="err : ${#fields.globalErrors()}" th:text="${err}">error</div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label" for="statementMarkdown">Statement</label>
+            <div class="form-text mb-1">
+                Markdown. Describe the problem, then the input and output formats and the
+                constraints &mdash; without those a correct algorithm still fails on format.
+            </div>
+            <textarea id="statementMarkdown" class="form-control font-monospace" rows="16"
+                      th:field="*{statementMarkdown}"
+                      th:classappend="${#fields.hasErrors('statementMarkdown')} ? 'is-invalid'"></textarea>
+            <div th:replace="~{fragments/bits :: fieldError('statementMarkdown')}"></div>
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label" for="editorialMarkdown">Editorial <span class="text-muted fw-normal">(optional)</span></label>
+            <div class="form-text mb-1">
+                How the problem is meant to be solved. Shown after a solve; leave it empty until
+                it is written rather than filling it with a placeholder.
+            </div>
+            <textarea id="editorialMarkdown" class="form-control font-monospace" rows="8"
+                      th:field="*{editorialMarkdown}"></textarea>
+        </div>
+
+        <h2 class="h6 text-uppercase text-muted">Worked examples</h2>
+        <p class="form-text">
+            Shown on the problem page. Each one should also exist as a <strong>sample test
+            case</strong> with the same expected output &mdash; otherwise a reader is shown
+            something their code is never actually run against.
+        </p>
+
+        <!--/*
+          Indices are rendered with the preprocessing syntax __${i}__ so Thymeleaf resolves them
+          before th:field parses the expression. Without it the binding path is the literal
+          "examples[i]" and every row writes to the same place.
+        */-->
+        <div id="example-rows">
+            <div th:each="ex, s : *{examples}" class="card mb-2 example-row">
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-md-5">
+                            <label class="form-label small">Input</label>
+                            <textarea class="form-control font-monospace form-control-sm" rows="3"
+                                      th:field="*{examples[__${s.index}__].input}"
+                                      th:classappend="${#fields.hasErrors('examples[__${s.index}__].input')} ? 'is-invalid'"></textarea>
+                            <div th:replace="~{fragments/bits :: fieldError('examples[__${s.index}__].input')}"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small">Output</label>
+                            <textarea class="form-control font-monospace form-control-sm" rows="3"
+                                      th:field="*{examples[__${s.index}__].output}"
+                                      th:classappend="${#fields.hasErrors('examples[__${s.index}__].output')} ? 'is-invalid'"></textarea>
+                            <div th:replace="~{fragments/bits :: fieldError('examples[__${s.index}__].output')}"></div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small">Explanation</label>
+                            <textarea class="form-control form-control-sm" rows="3"
+                                      th:field="*{examples[__${s.index}__].explanation}"></textarea>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-link text-danger px-0 mt-1 remove-row">
+                        Remove
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <button type="button" id="add-example" class="btn btn-sm btn-outline-secondary mb-4">
+            Add an example
+        </button>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">Save statement</button>
+            <a class="btn btn-outline-secondary"
+               th:href="@{/problems/{slug}(slug=${problem.slug})}" target="_blank">
+                View the problem page
+            </a>
+        </div>
+    </form>
+
+</main>
+
+<th:block th:fragment="scripts">
+    <script th:src="@{/js/admin-rows.js}"></script>
+    <script>
+        window.arenaRows({container: 'example-rows', rowClass: 'example-row',
+                          addButton: 'add-example', field: 'examples'});
+    </script>
+</th:block>
+</body>
+</html>

@@ -348,6 +348,19 @@ socket is group-owned, so pass its gid too:
 ARENA_DOCKER_GID=$(getent group docker | cut -d: -f3) ARENA_JUDGE_MODE=REAL docker compose up -d
 ```
 
+### Authoring a problem
+
+**Admin → Problems** gives each problem three tabs: *Details*, *Statement* and *Test cases*. The
+statement is markdown with worked examples; the test cases are input, expected output and a
+sample flag, written straight to MongoDB. A problem authored this way is judged for real with no
+file editing and no restart.
+
+The list shows where each problem stands, because a catalogue where some problems are executed
+and others quietly simulated cannot be managed from a list of titles and ratings. Where a worked
+example does not match the sample case that is actually run, both the list and the editors say so
+— that mismatch shows a reader one thing and marks them against another, and it looks like their
+own mistake rather than the platform's.
+
 ### Deploying it publicly
 
 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) covers running the whole stack on one always-free Oracle
@@ -784,6 +797,12 @@ is what makes an end-to-end test able to assert an exact verdict instead of retr
 sees one, and it is why the stack is safe to expose publicly: there is no untrusted execution in
 it anywhere. Obvious tells are checked before the hash, so `while (true)` reliably times out and
 an empty body reliably fails to compile. It says nothing about whether the code is correct.
+
+Only the three languages the runner image carries can be submitted at all. `Language`
+records which those are, the API refuses the rest with a 400, and the judge's toolchain table is
+asserted against the same flag. Before that gate existed the form offered all five: a Go
+submission reached a judge with no toolchain, threw, was retried and abandoned, and sat at
+`QUEUED` for ever.
 
 Real mode also falls back to simulation for a problem with no test cases, so both can occur in
 one deployment. **Which one produced a verdict travels with it** — on the `VerdictAssigned`
