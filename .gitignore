@@ -31,7 +31,8 @@ nbproject/
 .apt_generated/
 
 ### Local tooling ###
-.claude/settings.local.json
+# Editor and assistant settings are ignored per-clone via .git/info/exclude rather than here,
+# so this file stays about the project rather than about whatever anyone runs alongside it.
 
 ### OS ###
 .DS_Store
