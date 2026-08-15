@@ -1,4 +1,4 @@
-# CodeArena
+# JJudge
 
 [![CI](https://github.com/amkjitu/jjudge/actions/workflows/ci.yml/badge.svg)](https://github.com/amkjitu/jjudge/actions/workflows/ci.yml)
 [![Java](https://img.shields.io/badge/Java-17-orange)](https://adoptium.net/)
